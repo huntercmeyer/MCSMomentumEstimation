@@ -1,5 +1,5 @@
 """ READ_ME
-Written by Hunter Meyer
+Written by Hunter Meyer, hmeyer5@lsu.edu
 
 How to use this script: python3 plotSegmentAngles.py
 Parameters you can change:
@@ -23,8 +23,22 @@ recoData = [[[[x1,x2,x3...],[y1,y2,y3,...],[z1,z2,z3,...]],[segment2],[segment3]
 	X,Y, and Z data for all trajectory points corresponding to that segment in that event.
 	
 	If you would instead like the list of trajectory points in a segment in an event, you must transpose recoData[eventNum][segmentNum].
-	
-Must finish documentation, must update parameters as well, assuming they change.
+
+The barycenters are stored in this data structure:
+barycenters = [[[[x1,x2,x3...],[y1,y2,y3,...],[z1,z2,z3,...]],[segment2],[segment3],...],[event2],[event3],...]
+The polygonal segments are the lines connecting these barycenters
+
+The Linear Segments are stored in this data structure:
+linearFitParameters = [[[A,B,C,D],segment2,segment3,...],event2,event3,...] where z = A*x + B and y = C*z + D
+linearFitEndPoints = [[[[x1,y1,z1],[x2,y2,z2]],linearSegment2,linearSegment3,...],event2, event3, ...]
+						 \___VV___/ \___VV___/
+						   Point 1    Point 2
+The linear segment is the line connecting these two points.
+There are N segments, N-1 14 cm segments, N-1 barycenters, and N-1 linear fits
+There are N+1 segment start points (because the last segment start point is actually the last trajectory point in the detector (it's not the start of a segment but it's stored with the trajectory points that are), but that is out of the scope of this script.
+
+At the end of this script the polygonal and linear segments are plotted.
+Please forward any questions or concerns to Hunter Meyer, hmeyer5@lsu.edu, and let me know if any comments or documentation are unclear.
 """
 
 import numpy as np
@@ -120,7 +134,7 @@ for eventNum in np.arange(0,len(recoData)):
 #      Point 1    Point 2
 # The distance between Points 1 and 2 will be controlled by a parameter, so that we can easily visualize the angles.
 
-# May just remove this, if we change to calculating the trajectory points
+# The linearFitParameters are currently not being used outside of this for loop.
 linearFitParameters = [[[] for segment in event if segment != event[len(event)-1]] for event in recoData] # The if statement is there because we won't take the linear fit of the last, non-14 cm segment
 linearFitEndPoints = [[[] for segment in event if segment != event[len(event)-1]] for event in recoData] # The if statement is there because we won't take the linear fit of the last, non-14 cm segment
 for eventNum in np.arange(0,len(recoData)):
