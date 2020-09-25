@@ -188,8 +188,8 @@ for eventNum in np.arange(0,len(recoData)):
 			# This is only the approximate segment projection length since segments can have curve, but the difference is not much, so this is close enough for plotting.
 			
 			# Calculate the two points that are length lengthXZ / 2 from the barycenter (will plot the line connecting these two points for each segment)
-			xPlus = (2*A*(zAvg-B)+2*xAvg + math.sqrt(A**2*(lengthXZ**2-4*xAvg**2) - 8*A*B*xAvg + 8*A*xAvg*zAvg - 4*B**2 + 8*B*zAvg + lengthXZ**2 - 4*zAvg**2)) / (2*A**2+2)
-			xMinus = (2*A*(zAvg-B)+2*xAvg - math.sqrt(A**2*(lengthXZ**2-4*xAvg**2) - 8*A*B*xAvg + 8*A*xAvg*zAvg - 4*B**2 + 8*B*zAvg + lengthXZ**2 - 4*zAvg**2)) / (2*A**2+2)
+			xPlus = xAvg + (lengthXZ / 2) * math.sin(math.atan((firstX - lastX) / (firstZ - lastZ)))
+			xMinus = xAvg - (lengthXZ / 2) * math.sin(math.atan((firstX - lastX) / (firstZ - lastZ)))
 			zPlus = A*xPlus + B
 			zMinus = A*xMinus + B
 			yPlus = C*zPlus + D
