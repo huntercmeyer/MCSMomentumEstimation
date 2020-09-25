@@ -36,18 +36,20 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
+import MCS
+
 # Parameters you can change, see above READ_ME
 markerSize = 0.1
 drawAllEvents = False
 eventsToDraw = [209]
 colors = ['blue','red','green','yellow','orange','purple','magenta','lime','deeppink']
-recoFileName = "normalRecoPosInfo.txt"
+inputFileName = "normalRecoPosInfo.txt"
 screenshot1path = "beeEventDisplayScreenshots/screenshot11.png"
 screenshot2path = "beeEventDisplayScreenshots/screenshot12.png"
 outputFileName = "eventDisplay.png"
 
 # Draw reconstructed segments, labelled by color
-
+"""
 recoEventNum,recoSegmentNum,recoPointNum,recoX,recoY,recoZ = np.loadtxt(recoFileName,unpack = True,skiprows=1)
 
 # Convert to integers to be used as list index
@@ -83,6 +85,8 @@ for event in recoData:
 			event.remove(emptySegment)
 	except ValueError:
 		pass
+"""
+recoData = MCS.OrganizeEventData(inputFileName,eventsToDraw,drawAllEvents)
 
 fig = plt.figure()
 ax1 = plt.subplot(221) # Top left

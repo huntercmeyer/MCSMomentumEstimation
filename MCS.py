@@ -109,7 +109,12 @@ def GetLinearFitParameters(recoData,eventsToDraw,drawAllEvents):
 				linearFitParameters[eventNum][segmentNum] = [A,B,C,D]
 	return linearFitParameters
 
-def GetLinearFitEndPoints(linearFitParameters,barycenters,eventsToDraw,drawAllEvents):
+# Returned data structures:
+# [[[[x1,y1,z1],[x2,y2,z2]],linearSegment2,linearSegment3,...],event2, event3, ...]
+#    \___VV___/ \___VV___/
+#      Point 1    Point 2
+# The distance between Points 1 and 2 will be controlled by the parameter segmentLength, so that we can easily visualize the angles.
+def GetLinearFitEndPoints(linearFitParameters,barycenters,segmentLength,eventsToDraw,drawAllEvents):
 	linearFitEndPoints = [[[] for segment in event] for event in linearFitParameters]
 
 	for eventNum in np.arange(0,len(linearFitParameters)):
@@ -119,16 +124,13 @@ def GetLinearFitEndPoints(linearFitParameters,barycenters,eventsToDraw,drawAllEv
 			
 			for segmentNum in np.arange(0,len(event)):
 				# Get the first and last (x,y,z) of this segment.
-						
+
 				# z = A*x + B
 				# y = C*z + D
-				print(linearFitParameters[eventNum])
 				A = linearFitParameters[eventNum][segmentNum][0]
 				B = linearFitParameters[eventNum][segmentNum][1]
 				C = linearFitParameters[eventNum][segmentNum][2]
 				D = linearFitParameters[eventNum][segmentNum][3]
-				
-				segmentLength = 14
 				
 				# Segment Directional Length Projections given the linear fit parameters
 				deltaX = segmentLength / np.sqrt(1 + A**2 + (A*C)**2)

@@ -88,13 +88,11 @@ barycenters = MCS.GetBarycenters(recoData,eventsToDraw,drawAllEvents)
 #      Point 1    Point 2
 # The distance between Points 1 and 2 will be controlled by a parameter, so that we can easily visualize the angles.
 
+segmentLength = 14
 linearFitParameters = MCS.GetLinearFitParameters(recoData,eventsToDraw,drawAllEvents)
-linearFitEndPoints = MCS.GetLinearFitEndPoints(linearFitParameters,barycenters,eventsToDraw,drawAllEvents)
+linearFitEndPoints = MCS.GetLinearFitEndPoints(linearFitParameters,barycenters,segmentLength,eventsToDraw,drawAllEvents)
 
-############################################################
-# Section 5 - Plotting
-############################################################
-
+# Plotting
 fig = plt.figure()
 # Top Left - X vs. Z Polygonal Segments
 ax1 = plt.subplot(221)
