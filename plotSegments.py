@@ -74,7 +74,7 @@ for entry in np.arange(0,len(recoEventNum)):	# Loop through every entry
 		recoData[eventNum-1][segmentNum][0].append(recoX[entry])	# -1 comes from events starting to count at 1, not 0
 		recoData[eventNum-1][segmentNum][1].append(recoY[entry])
 		recoData[eventNum-1][segmentNum][2].append(recoZ[entry])
-print(recoData[209])
+
 # Remove the entries of recoData that are empty.
 emptySegment = [[],[],[]]
 for event in recoData:
