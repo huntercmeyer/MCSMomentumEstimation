@@ -39,7 +39,7 @@ import matplotlib.image as mpimg
 # Parameters you can change, see above READ_ME
 markerSize = 0.1
 drawAllEvents = False
-eventToDraw = 209
+eventsToDraw = [209]
 colors = ['blue','red','green','yellow','orange','purple','magenta','lime','deeppink']
 recoFileName = "normalRecoPosInfo.txt"
 screenshot1path = "beeEventDisplayScreenshots/screenshot11.png"
@@ -57,15 +57,9 @@ recoPointNum = recoPointNum.astype(int)
  
 # Get the maximums
 recoMaxSeg = np.amax(recoSegmentNum)
-maxEventNum = np.amax(recoEventNum)				# Currently not used
+maxEventNum = np.amax(recoEventNum)
 # Events begin counting at 1 and go to maxEventNum.
 # Segments begin counting at 0 and go to recoMaxSeg for that event. (for the events that contained the maximum, for the other events we will later chop off the empty data)
-
-# Setting some initial values.
-oldSegNum = 0									# Previous entry's segment num (initially set to 0, arbitrarily)
-currSegNum = recoSegmentNum[0] 					# Initial entry's initial segment num (should be 0)
-oldEventNum = 0									# Previous entry's event num (initially set to 0, arbritrarily)
-currEventNum = recoEventNum[0]					# Initial entry's event num (normally 1)
 
 recoData = [[[[],[],[]] for segment in np.arange(0,recoMaxSeg+1)] for event in np.arange(0,maxEventNum)] # +1 comes from the fact that segments go from 0 to recoMaxSeg, meaning there are recoMaxSeg+1 total segments!
 # Build the recoData list using the following structure: (easily read from right to left)
@@ -73,18 +67,15 @@ recoData = [[[[],[],[]] for segment in np.arange(0,recoMaxSeg+1)] for event in n
 # Recall that events start at 1 but segments start at 0
 
 for entry in np.arange(0,len(recoEventNum)):	# Loop through every entry
-	oldEventNum = currEventNum
-	oldSegNum = currSegNum
-	
-	currEventNum = recoEventNum[entry]
-	currSegNum = recoSegmentNum[entry]
-	
-	recoData[currEventNum-1][currSegNum][0].append(recoX[entry])	# -1 comes from events starting to count at 1, not 0
-	recoData[currEventNum-1][currSegNum][1].append(recoY[entry])
-	recoData[currEventNum-1][currSegNum][2].append(recoZ[entry])
-
+	eventNum = recoEventNum[entry]
+	if (eventNum - 1 in eventsToDraw) or drawAllEvents:					# -1 comes from events starting
+		segmentNum = recoSegmentNum[entry]
+		
+		recoData[eventNum-1][segmentNum][0].append(recoX[entry])	# -1 comes from events starting to count at 1, not 0
+		recoData[eventNum-1][segmentNum][1].append(recoY[entry])
+		recoData[eventNum-1][segmentNum][2].append(recoZ[entry])
+print(recoData[209])
 # Remove the entries of recoData that are empty.
-
 emptySegment = [[],[],[]]
 for event in recoData:
 	try:
@@ -125,7 +116,8 @@ ax4.get_xaxis().set_label_coords(1,-0.1)
 ax4.get_yaxis().set_label_coords(-0.15,1)
 
 for eventNum in np.arange(0,len(recoData)):
-	if eventNum == eventToDraw or drawAllEvents:
+	if (eventNum in eventsToDraw) or drawAllEvents:
+		event = recoData[eventNum]
 		for segmentNum in np.arange(0,len(event)):
 			segment = event[segmentNum]
 			x = segment[0]
