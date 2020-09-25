@@ -84,22 +84,14 @@ for entry in np.arange(0,len(recoEventNum)):	# Loop through every entry
 	recoData[currEventNum-1][currSegNum][2].append(recoZ[entry])
 
 # Remove the entries of recoData that are empty.
-val = [[[],[],[]] for segment in np.arange(0,recoMaxSeg+1)]
-try:
-	while True:
-		recoData.remove(val)
-except ValueError:
-	pass
 
-# Now that recoData is built, we must calculate the angle of each segment for plotting thetaXZ vs. segment # and thetaYZ vs. segment #
-thetaXZprime = [[] for angle in np.arange(0,recoMaxSeg)]	# No +1 this time since we have one less angle than segments
-thetaYZprime = [[] for angle in np.arange(0,recoMaxSeg)]
-
-# Get the barycenters of each segment
-barycenters = []
+emptySegment = [[],[],[]]
 for event in recoData:
-	for segment in event:
-		barycenters.append([np.average(segment[0]),np.average(segment[1]),np.average(segment[2])])
+	try:
+		while True:
+			event.remove(emptySegment)
+	except ValueError:
+		pass
 
 fig = plt.figure()
 ax1 = plt.subplot(221) # Top left
