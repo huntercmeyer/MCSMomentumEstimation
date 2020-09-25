@@ -49,43 +49,6 @@ screenshot2path = "beeEventDisplayScreenshots/screenshot12.png"
 outputFileName = "eventDisplay.png"
 
 # Draw reconstructed segments, labelled by color
-"""
-recoEventNum,recoSegmentNum,recoPointNum,recoX,recoY,recoZ = np.loadtxt(recoFileName,unpack = True,skiprows=1)
-
-# Convert to integers to be used as list index
-recoEventNum = recoEventNum.astype(int)
-recoSegmentNum = recoSegmentNum.astype(int)
-recoPointNum = recoPointNum.astype(int)
- 
-# Get the maximums
-recoMaxSeg = np.amax(recoSegmentNum)
-maxEventNum = np.amax(recoEventNum)
-# Events begin counting at 1 and go to maxEventNum.
-# Segments begin counting at 0 and go to recoMaxSeg for that event. (for the events that contained the maximum, for the other events we will later chop off the empty data)
-
-recoData = [[[[],[],[]] for segment in np.arange(0,recoMaxSeg+1)] for event in np.arange(0,maxEventNum)] # +1 comes from the fact that segments go from 0 to recoMaxSeg, meaning there are recoMaxSeg+1 total segments!
-# Build the recoData list using the following structure: (easily read from right to left)
-# [[[[x1,x2,x3...],[y1,y2,y3,...],[z1,z2,z3,...]],[segment2],[segment3],...],[event2],[event3],...]
-# Recall that events start at 1 but segments start at 0
-
-for entry in np.arange(0,len(recoEventNum)):	# Loop through every entry
-	eventNum = recoEventNum[entry]
-	if (eventNum - 1 in eventsToDraw) or drawAllEvents:					# -1 comes from events starting
-		segmentNum = recoSegmentNum[entry]
-		
-		recoData[eventNum-1][segmentNum][0].append(recoX[entry])	# -1 comes from events starting to count at 1, not 0
-		recoData[eventNum-1][segmentNum][1].append(recoY[entry])
-		recoData[eventNum-1][segmentNum][2].append(recoZ[entry])
-
-# Remove the entries of recoData that are empty.
-emptySegment = [[],[],[]]
-for event in recoData:
-	try:
-		while True:
-			event.remove(emptySegment)
-	except ValueError:
-		pass
-"""
 recoData = MCS.OrganizeEventData(inputFileName,eventsToDraw,drawAllEvents)
 
 fig = plt.figure()
