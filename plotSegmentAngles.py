@@ -46,9 +46,7 @@ import math as math
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 
-############################################################
-# Section 1 - Setup: Read Data
-############################################################
+import MCS
 
 # Parameters you can change, see above READ_ME
 markerSize = 0.7
@@ -56,70 +54,26 @@ drawAllEvents = False
 eventsToDraw = [209] # 209 is in the main figure, events start counting at 0 for this (unlike recoEventNum data)
 colors = ['blue','red','green','yellow','orange','purple','magenta','lime','deeppink']
 blackOrGray = ['black','gray']
-recoFileName = "normalRecoPosInfoLastSegmentIncluded.txt"
+inputFileName = "normalRecoPosInfoLastSegmentIncluded.txt"
 screenshot1path = "beeEventDisplayScreenshots/screenshot11.png"
 screenshot2path = "beeEventDisplayScreenshots/screenshot12.png"
 outputFileName = "segmentAngles.png"
 
-# Draw reconstructed segments, labelled by color
+# Reading the data from inputFileName, we will have data that has no organization, but we can organize it into a readable data structure that better suits our situation.
 
-recoEventNum,recoSegmentNum,recoPointNum,recoX,recoY,recoZ = np.loadtxt(recoFileName,unpack = True,skiprows=1)
+# Organize Event Data into a more readable data structure (4D list)
+recoData = MCS.OrganizeEventData(inputFileName,eventsToDraw,drawAllEvents)
+# Structure:
+# recoData = [[[[x1,x2,x3...],[y1,y2,y3,...],[z1,z2,z3,...]],segment2,segment3,...],event2,event3,...]
+# You can access trajectory point trajectoryPointNum from event eventNum and segment segmentNum using:
+# trajectoryPoint = np.transpose(recoData[eventNum][segmentNum])[trajectoryPointNum]
+# trajectoryPoint will look like [x_i,y_i,z_i] where i indicates the trajectory point number.
 
-# Convert to integers to be used as list index
-recoEventNum = recoEventNum.astype(int)
-recoSegmentNum = recoSegmentNum.astype(int)
-recoPointNum = recoPointNum.astype(int)
- 
-# Get the maximums
-recoMaxSeg = np.amax(recoSegmentNum)
-maxEventNum = np.amax(recoEventNum)				# Currently not used
-# Events begin counting at 1 and go to maxEventNum.
-# Segments begin counting at 0 and go to recoMaxSeg for that event. (for the events that contained the maximum, for the other events we will later chop off the empty data)
-
-# Setting some initial values.
-segmentNum = recoSegmentNum[0] 					# Initial entry's initial segment num (should be 0)
-eventNum = recoEventNum[0]					# Initial entry's event num (normally 1)
-
-############################################################
-# Section 2 - Setup: Organize Data
-############################################################
-
-recoData = [[[[],[],[]] for segment in np.arange(0,recoMaxSeg+1)] for event in np.arange(0,maxEventNum)] # +1 comes from the fact that segments go from 0 to recoMaxSeg, meaning there are recoMaxSeg+1 total segments!
-# Build the recoData list using the following structure: (easily read from right to left)
-# [[[[x1,x2,x3...],[y1,y2,y3,...],[z1,z2,z3,...]],[segment2],[segment3],...],[event2],[event3],...]
-# Recall that events start at 1 but segments start at 0
-
-for entry in np.arange(0,len(recoEventNum)):	# Loop through every entry
-	eventNum = recoEventNum[entry]
-	if (eventNum-1 in eventsToDraw) or drawAllEvents:				# -1 comes from events starting to count at 1, not 0
-		segmentNum = recoSegmentNum[entry]
-		
-		recoData[eventNum-1][segmentNum][0].append(recoX[entry])	# -1 comes from events starting to count at 1, not 0
-		recoData[eventNum-1][segmentNum][1].append(recoY[entry])
-		recoData[eventNum-1][segmentNum][2].append(recoZ[entry])
-
-# From here on, events start counting at zero because we get the index of the event from the position in the recoData list.
-
-# Remove the entries of recoData that are empty. (when that event have a number of segments less than recoMaxSeg)
-emptySegment = [[],[],[]]
-for event in recoData:
-	try:
-		while True:
-			event.remove(emptySegment)
-	except ValueError:
-		pass
-
-############################################################
-# Section 3 - Get Barycenters for Polygonal Segments
-############################################################
-# Get the barycenters of each segment
-barycenters = [[] for event in recoData]
-for eventNum in np.arange(0,len(recoData)):
-	if (eventNum in eventsToDraw) or drawAllEvents:
-		for segmentNum in np.arange(0,len(recoData[eventNum])-1):
-			barycenters[eventNum].append([np.average(recoData[eventNum][segmentNum][0]),np.average(recoData[eventNum][segmentNum][1]),np.average(recoData[eventNum][segmentNum][2])])
-# The barycenter data structure:
-# [[[x,y,z],barycenter2,barycenter3,...],event2, event3,....]
+# Calculate the barycenter of each segment and store into an organized 3D list
+barycenters = MCS.GetBarycenters(recoData,eventsToDraw,drawAllEvents)
+# Structure:
+# barycenters = [[[x,y,z],barycenter2,barycenter3,...],event2, event3,....]
+# barycenter = barycenters[eventNum][segmentNum] will return the [x,y,z] of this barycenter
 
 ############################################################
 # Section 4 - Get Linear Fits for Linear Segments
@@ -134,68 +88,8 @@ for eventNum in np.arange(0,len(recoData)):
 #      Point 1    Point 2
 # The distance between Points 1 and 2 will be controlled by a parameter, so that we can easily visualize the angles.
 
-# The linearFitParameters are currently not being used outside of this for loop.
-linearFitParameters = [[[] for segment in event if segment != event[len(event)-1]] for event in recoData] # The if statement is there because we won't take the linear fit of the last, non-14 cm segment
-linearFitEndPoints = [[[] for segment in event if segment != event[len(event)-1]] for event in recoData] # The if statement is there because we won't take the linear fit of the last, non-14 cm segment
-for eventNum in np.arange(0,len(recoData)):
-
-	if (eventNum in eventsToDraw) or drawAllEvents:
-		event = recoData[eventNum]
-		
-		for segmentNum in np.arange(0,len(event)-1):		# The -1 comes from not doing the last segment since it's not 14 cm.
-			
-			# Used in least squares regression
-			SSxz = 0
-			SSxx = 0
-			SSzy = 0
-			SSzz = 0
-		
-			# Segment data
-			segment = event[segmentNum]
-			xAvg = barycenters[eventNum][segmentNum][0]
-			yAvg = barycenters[eventNum][segmentNum][1]
-			zAvg = barycenters[eventNum][segmentNum][2]
-			
-			xTrajectoryPoints = segment[0]
-			yTrajectoryPoints = segment[1]
-			zTrajectoryPoints = segment[2]
-			for x,y,z in zip(xTrajectoryPoints,yTrajectoryPoints,zTrajectoryPoints):
-				SSxz += (x-xAvg)*(z-zAvg)
-				SSxx += (x-xAvg)*(x-xAvg)
-				SSzy += (y-yAvg)*(z-zAvg)
-				SSzz += (z-zAvg)*(z-zAvg)
-			
-			# Calculate linear fit parameters
-			# z = A*x+B
-			# y = C*z + D
-			A = SSxz / SSxx
-			B = zAvg - A*xAvg
-			C = SSzy / SSzz
-			D = yAvg - C*zAvg
-			linearFitParameters[eventNum][segmentNum].append([A,B,C,D]) 		# May remove the linear fit parameters, if I change to do it inline
-			
-			# Get the first and last (x,y,z) of this segment.
-			firstX = xTrajectoryPoints[0]
-			lastX = xTrajectoryPoints[len(xTrajectoryPoints)-1]
-			firstY = yTrajectoryPoints[0]
-			lastY = yTrajectoryPoints[len(yTrajectoryPoints)-1]
-			firstZ = zTrajectoryPoints[0]
-			lastZ = zTrajectoryPoints[len(zTrajectoryPoints)-1]
-
-			# Calculate the length of this segment in the two projections, for plotting
-			lengthXZ = math.sqrt((firstX-lastX)**2 + (firstZ-lastZ)**2)
-			lengthYZ = math.sqrt((firstY-lastY)**2 + (firstZ-lastZ)**2)
-			# This is only the approximate segment projection length since segments can have curve, but the difference is not much, so this is close enough for plotting.
-			
-			# Calculate the two points that are length lengthXZ / 2 from the barycenter (will plot the line connecting these two points for each segment)
-			xPlus = xAvg + (lengthXZ / 2) * math.sin(math.atan((firstX - lastX) / (firstZ - lastZ)))
-			xMinus = xAvg - (lengthXZ / 2) * math.sin(math.atan((firstX - lastX) / (firstZ - lastZ)))
-			zPlus = A*xPlus + B
-			zMinus = A*xMinus + B
-			yPlus = C*zPlus + D
-			yMinus = C*zMinus + D
-			
-			linearFitEndPoints[eventNum][segmentNum].append([[xMinus,yMinus,zMinus],[xPlus,yPlus,zPlus]])
+linearFitParameters = MCS.GetLinearFitParameters(recoData,eventsToDraw,drawAllEvents)
+linearFitEndPoints = MCS.GetLinearFitEndPoints(linearFitParameters,barycenters,eventsToDraw,drawAllEvents)
 
 ############################################################
 # Section 5 - Plotting
