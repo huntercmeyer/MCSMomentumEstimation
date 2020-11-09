@@ -81,9 +81,6 @@ def GetLinearFitParameters(recoData,eventsToDraw,drawAllEvents):
 
 				# Segment data
 				segment = event[segmentNum]
-				#xAvg = barycenters[eventNum][segmentNum][0]
-				#yAvg = barycenters[eventNum][segmentNum][1]
-				#zAvg = barycenters[eventNum][segmentNum][2]
 				
 				xTrajectoryPoints = segment[0]
 				yTrajectoryPoints = segment[1]
