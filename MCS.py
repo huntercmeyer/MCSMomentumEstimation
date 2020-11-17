@@ -148,3 +148,17 @@ def GetLinearFitEndPoints(linearFitParameters,barycenters,segmentLength,eventsTo
 				linearFitEndPoints[eventNum][segmentNum].append([[xMinus,yMinus,zMinus],[xPlus,yPlus,zPlus]])
 
 	return linearFitEndPoints
+
+# Get the polygonal angles from the barycenters
+
+# Get the linear angles from the linear fit parameters
+
+# Verify that the angles are the same as those in root
+
+# Add sigmaRMS, sigmaRES, etc. functions
+
+# Add momentum estimation methods
+
+# Generate points for "known-angle" study
+
+# See how this affects momentum estimation, sigmaRES calculations, etc.
