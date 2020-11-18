@@ -3,12 +3,14 @@ import newMCS as MCS
 
 # Parameters
 truePosInfo = "500_mu_1_GeV_start_beam-entry_dir_35_-45_truePosInfo.txt"
+recoPosInfo = "500_mu_1_GeV_start_beam-entry_dir_35_-45_recoPosInfo.txt"
 maxEventNum = 500
 eventList = [0] # List of events we are working with
 ignoreEventList = False
 
 # Sort trajectory points corresponding to each event into a List
-events = MCS.OrganizeTrueDataIntoEvents(truePosInfo)
+#events = MCS.OrganizeTrueDataIntoEvents(truePosInfo)
+events = MCS.OrganizeRecoDataIntoEvents(recoPosInfo)
 
 # Remove all events that are not in eventList, unless ignoreEventList is True
 if not ignoreEventList:
@@ -33,8 +35,34 @@ for eventIndex in np.arange(0,len(events)):
 	sortedData = MCS.OrganizeEventDataIntoSegments(event,14.0,True)
 	sortedTrueData.append(sortedData)
 
-# Get Barycenters of each event
-trueBarycenters = []
+# Get Barycenters of each segment in each event
+# Does not get the barycenter of the final segment, which is not 14-cm
+trueBarycentersList = []
 for eventIndex in np.arange(0,len(sortedTrueData)):
 	event = sortedTrueData[eventIndex]
-	trueBarycenters.append(MCS.GetBarycenters(event))
+	trueBarycentersList.append(MCS.GetBarycenters(event))
+
+# Get Linear Fit Parameters of each segment in each event
+# Does not get the fit parameters of the final segment, which is not 14-cm
+trueLinearFitParametersList = []
+for eventIndex in np.arange(0,len(sortedTrueData)):
+	event = sortedTrueData[eventIndex]
+	trueLinearFitParametersList.append(MCS.GetLinearFitParameters(event))
+
+# Get Polygonal Angles from each segment in each event, using the barycenters
+truePolygonalAngles = []
+for eventIndex in np.arange(0,len(sortedTrueData)):
+	event = sortedTrueData[eventIndex]
+	barycenters = trueBarycentersList[eventIndex]
+	truePolygonalAngles.append(MCS.GetPolygonalAngles(event,barycenters))
+
+# Get Linear Angles from each segment in each event, using the linear fit parameters
+trueLinearAngles = []
+for eventIndex in np.arange(0,len(sortedTrueData)):
+	event = sortedTrueData[eventIndex]
+	parameters = trueLinearFitParametersList[eventIndex]
+	trueLinearAngles.append(MCS.GetLinearAngles(event,parameters))
+
+print("True Linear Parameters:",trueLinearFitParametersList[0])
+print("True Poly Angles:",truePolygonalAngles[0])
+print("True Linear Angles:",trueLinearAngles[0])
