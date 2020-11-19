@@ -61,17 +61,3 @@ for eventIndex in np.arange(0,len(sortedTrueData)):
 	event = sortedTrueData[eventIndex]
 	parameters = trueLinearFitParametersList[eventIndex]
 	trueLinearAngles.append(MCS.GetLinearAngles(event,parameters))
-
-print("True Linear Parameters:")
-for parametersIndex in np.arange(0,len(trueLinearFitParametersList[0])):
-	print(parametersIndex, trueLinearFitParametersList[0][parametersIndex])
-
-print()
-print("True Linear Angles:")
-for index in np.arange(0,len(np.transpose(trueLinearAngles[0]))):
-	print(index, np.transpose(trueLinearAngles[0])[index])
-
-print()
-print("True Polygonal Angles:")
-for index in np.arange(0,len(np.transpose(truePolygonalAngles[0]))):
-	print(index, np.transpose(truePolygonalAngles[0])[index])
