@@ -1,5 +1,20 @@
 import numpy as np
 
+def OrganizeDataIntoEvents(fileName):
+	eventNum,xVals,yVals,zVals = np.loadtxt(fileName,unpack = True,skiprows=1)
+	
+	# Convert to integers to be used as list index
+	eventNum = eventNum.astype(int)
+	maxEventNum = np.amax(eventNum)
+	
+	eventData = [[] for event in np.arange(0,maxEventNum)]
+	for entry in np.arange(0,len(eventNum)):
+		event = eventNum[entry] - 1 # The -1 comes from events starting to count at 1, not 0
+		if xVals[entry] != -999.0:
+			eventData[event].append([xVals[entry],yVals[entry],zVals[entry]])
+
+	return eventData
+
 # Returned Organizational Structure:
 # [[[x,y,z],trajectoryPoint2,trajectoryPoint3,...],event2,event3,...]
 def OrganizeTrueDataIntoEvents(fileName):
@@ -47,6 +62,7 @@ def OrganizeEventDataIntoSegments(event,segmentLength = 14.0,forceSegmentLength 
 	# Loop through every trajectory point in this event.
 	length = 0
 	previousLength = 0
+	previousDiff = 0
 	segmentPoints = []
 	segmentNum = 0
 	segments.append([event[0]])
@@ -78,14 +94,22 @@ def OrganizeEventDataIntoSegments(event,segmentLength = 14.0,forceSegmentLength 
 				segments.append([])
 				segments[segmentNum].append(virtualPoint)
 				segments[segmentNum].append(currentPoint)
-							
+				
 				# Correct the length to be the distance from the virtual point to the current point.
 				length -= segmentLength
 			else:
-				segmentNum += 1
-				segments.append([])
-				segments[segmentNum].append(currentPoint)
-				length = 0
+				if segmentLength - previousLength >= length - segmentLength:
+					segments[segmentNum].append(currentPoint)
+					segmentNum += 1
+					segments.append([])
+					segments[segmentNum].append(currentPoint)
+					length = 0
+				else:
+					segmentNum += 1
+					segments.append([])
+					segments[segmentNum].append(previousPoint)
+					segments[segmentNum].append(currentPoint)
+					length = diff
 
 		elif diff > 14:
 			print("Solve")
@@ -94,6 +118,7 @@ def OrganizeEventDataIntoSegments(event,segmentLength = 14.0,forceSegmentLength 
 			segments[segmentNum].append(currentPoint)
 		
 		previousLength = length
+		previousDiff = diff
 
 	return segments
 
@@ -211,7 +236,7 @@ def GetLinearAngles(event, linearFitParameters):
 	thetaXZ = np.arctan(x/z)
 	thetaYZ = np.arctan(y/z)
 	
-	for parametersIndex in np.arange(0,len(linearFitParameters)-1):
+	for parametersIndex in np.arange(1,len(linearFitParameters)):
 		parameters = linearFitParameters[parametersIndex]
 	
 		v = [0,0,1]

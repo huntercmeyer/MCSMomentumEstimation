@@ -10,7 +10,7 @@ ignoreEventList = False
 
 # Sort trajectory points corresponding to each event into a List
 #events = MCS.OrganizeTrueDataIntoEvents(truePosInfo)
-events = MCS.OrganizeRecoDataIntoEvents(recoPosInfo)
+events = MCS.OrganizeDataIntoEvents(recoPosInfo)
 
 # Remove all events that are not in eventList, unless ignoreEventList is True
 if not ignoreEventList:
@@ -25,14 +25,13 @@ if not ignoreEventList:
 # This code here allows this to be true, regardless of ignoreEventList
 if ignoreEventList:
 	eventList = [i for i in np.arange(0,maxEventNum)]
-
 # Sort each event's data into segments, forcing the segment length to be exactly the same
 # sortedTrueData Organizational structure:
 # [[[[x1,y1,z1],trajectoryPoint2,trajectoryPoint3,...],segment2,segment3,...],event2,event3,...]
 sortedTrueData = []
 for eventIndex in np.arange(0,len(events)):
 	event = events[eventIndex]
-	sortedData = MCS.OrganizeEventDataIntoSegments(event,14.0,True)
+	sortedData = MCS.OrganizeEventDataIntoSegments(event,14.0,False)
 	sortedTrueData.append(sortedData)
 
 # Get Barycenters of each segment in each event
@@ -63,6 +62,16 @@ for eventIndex in np.arange(0,len(sortedTrueData)):
 	parameters = trueLinearFitParametersList[eventIndex]
 	trueLinearAngles.append(MCS.GetLinearAngles(event,parameters))
 
-print("True Linear Parameters:",trueLinearFitParametersList[0])
-print("True Poly Angles:",truePolygonalAngles[0])
-print("True Linear Angles:",trueLinearAngles[0])
+print("True Linear Parameters:")
+for parametersIndex in np.arange(0,len(trueLinearFitParametersList[0])):
+	print(parametersIndex, trueLinearFitParametersList[0][parametersIndex])
+
+print()
+print("True Linear Angles:")
+for index in np.arange(0,len(np.transpose(trueLinearAngles[0]))):
+	print(index, np.transpose(trueLinearAngles[0])[index])
+
+print()
+print("True Polygonal Angles:")
+for index in np.arange(0,len(np.transpose(truePolygonalAngles[0]))):
+	print(index, np.transpose(truePolygonalAngles[0])[index])
