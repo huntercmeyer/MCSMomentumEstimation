@@ -1,74 +1,49 @@
 import numpy as np
+from scipy.stats import norm
 
-def OrganizeDataIntoEvents(fileName):
-	eventNum,xVals,yVals,zVals = np.loadtxt(fileName,unpack = True,skiprows=1)
-	
-	# Convert to integers to be used as list index
-	eventNum = eventNum.astype(int)
-	maxEventNum = np.amax(eventNum)
-	
-	eventData = [[] for event in np.arange(0,maxEventNum)]
-	for entry in np.arange(0,len(eventNum)):
-		event = eventNum[entry] - 1 # The -1 comes from events starting to count at 1, not 0
-		if xVals[entry] != -999.0:
-			eventData[event].append([xVals[entry],yVals[entry],zVals[entry]])
-
-	return eventData
-
-# Returned Organizational Structure:
-# [[[x,y,z],trajectoryPoint2,trajectoryPoint3,...],event2,event3,...]
-def OrganizeTrueDataIntoEvents(fileName):
-	# Ignoring segmentNum, we're calculating the segments in OrganizeEventDataIntoSegments(...)
-	eventNum,segmentNum,trueMomentum,pointNum,trueX,trueY,trueZ = np.loadtxt(fileName,unpack = True,skiprows=1)
-	
-	# Convert to integers to be used as list index
-	eventNum = eventNum.astype(int)
-	pointNum = pointNum.astype(int)
-	
-	maxEventNum = np.amax(eventNum)
-	
-	eventData = [[] for event in np.arange(0,maxEventNum)]
-	for entry in np.arange(0,len(eventNum)):
-		event = eventNum[entry] - 1 # The -1 comes from events starting to count at 1, not 0
-		eventData[event].append([trueX[entry],trueY[entry],trueZ[entry]])
-
-	return eventData
-
-# Returned Organizational Structure:
-# [[[x,y,z],trajectoryPoint2,trajectoryPoint3,...],event2,event3,...]
+# [[[[x1,y1,z1],trajectoryPoint2,trajectoryPoint3,...],track2,track3,...],event2,event3,...]
+# Will contain multiple tracks if each track was longer than 100 cm
 def OrganizeRecoDataIntoEvents(fileName):
-	# Ignoring segmentNum, we're calculating the segments in OrganizeEventDataIntoSegments(...)
-	eventNum,segmentNum,pointNum,recoX,recoY,recoZ = np.loadtxt(fileName,unpack = True,skiprows=1)
+	eventNum,trackNum,xVals,yVals,zVals = np.loadtxt(fileName,unpack = True,skiprows=1)
 	
 	# Convert to integers to be used as list index
 	eventNum = eventNum.astype(int)
-	pointNum = pointNum.astype(int)
-	
+	trackNum = trackNum.astype(int)
 	maxEventNum = np.amax(eventNum)
 	
 	eventData = [[] for event in np.arange(0,maxEventNum)]
+	previousEvent = 0
+	previousTrack = 0
+	eventData[eventNum[0]-1].append([])
 	for entry in np.arange(0,len(eventNum)):
 		event = eventNum[entry] - 1 # The -1 comes from events starting to count at 1, not 0
-		eventData[event].append([recoX[entry],recoY[entry],recoZ[entry]])
+		track = trackNum[entry]
+		if track > previousTrack or event > previousEvent:
+			eventData[event].append([])
+		if xVals[entry] != -999.0:
+			eventData[event][track].append([xVals[entry],yVals[entry],zVals[entry]])
+		
+		previousEvent = event
+		previousTrack = track
 
 	return eventData
 
 # Returned Organizational structure:
-# [[[x1,y1,z1],trajectoryPoint2,trajectoryPoint3],segment2,segment3,...]
-def OrganizeEventDataIntoSegments(event,segmentLength = 14.0,forceSegmentLength = False):
-	# List of segments for this event
+# [[[x1,y1,z1],trajectoryPoint2,trajectoryPoint3],segment2,segment3,...] = iTrack
+def OrganizeTrackDataIntoSegments(track,segmentLength = 14.0,forceSegmentLength = False):
+	# List of segments for this track
 	segments = []
 
-	# Loop through every trajectory point in this event.
+	# Loop through every trajectory point in this track.
 	length = 0
 	previousLength = 0
 	previousDiff = 0
 	segmentPoints = []
 	segmentNum = 0
-	segments.append([event[0]])
-	for trajectoryPointNum in np.arange(1,len(event)):
-		currentPoint = event[trajectoryPointNum]
-		previousPoint = event[trajectoryPointNum-1]
+	segments.append([track[0]])
+	for trajectoryPointNum in np.arange(1,len(track)):
+		currentPoint = track[trajectoryPointNum]
+		previousPoint = track[trajectoryPointNum-1]
 		diff = np.sqrt((currentPoint[0]-previousPoint[0])**2 + (currentPoint[1]-previousPoint[1])**2 + (currentPoint[2]-previousPoint[2])**2)
 		length += diff
 		if length > segmentLength and previousLength <= segmentLength:
@@ -124,10 +99,10 @@ def OrganizeEventDataIntoSegments(event,segmentLength = 14.0,forceSegmentLength 
 
 # Returned Organizational structure:
 # [[x_avg,y_avg,z_avg],segment2,segment3,...]
-def GetBarycenters(event):
+def GetBarycenters(track):
 	barycenters = []
-	for segmentNum in np.arange(0,len(event)-1): # -1 so that we don't take the barycenter of the last, non-14 cm segment.
-		segment = event[segmentNum]
+	for segmentNum in np.arange(0,len(track)-1): # -1 so that we don't take the barycenter of the last, non-14 cm segment.
+		segment = track[segmentNum]
 		transposedSegment = np.transpose(segment)
 		
 		xAvg = np.average(transposedSegment[0])
@@ -140,13 +115,13 @@ def GetBarycenters(event):
 
 # Returned Organizational structure:
 # [[A,B,C,D],segment2,segment3,...]
-def GetLinearFitParameters(event):
+def GetLinearFitParameters(track):
 	linearFitParameters = []
 	
-	for segmentNum in np.arange(0,len(event)-1): # -1 so that we don't take the fit of the last non-14cm segment.
+	for segmentNum in np.arange(0,len(track)-1): # -1 so that we don't take the fit of the last non-14cm segment.
 		
 		# Segment data
-		segment = event[segmentNum]
+		segment = track[segmentNum]
 		transposedSegment = np.transpose(segment)
 		
 		xTrajectoryPoints = transposedSegment[0]
@@ -183,13 +158,13 @@ def GetLinearFitParameters(event):
 	return linearFitParameters
 
 # Get Polygonal Angles between segments
-def GetPolygonalAngles(event, barycenters):
+def GetPolygonalAngles(track, barycenters):
 	thetaXZprimeList = []
 	thetaYZprimeList = []
 
-	x = barycenters[0][0] - event[0][0][0]
-	y = barycenters[0][1] - event[0][0][1]
-	z = barycenters[0][2] - event[0][0][2]
+	x = barycenters[0][0] - track[0][0][0]
+	y = barycenters[0][1] - track[0][0][1]
+	z = barycenters[0][2] - track[0][0][2]
 	thetaXZ = np.arctan(x/z)
 	thetaYZ = np.arctan(y/z)
 	
@@ -226,7 +201,8 @@ def GetPolygonalAngles(event, barycenters):
 	return [thetaXZprimeList, thetaYZprimeList]
 
 # Get Linear Angles between segments
-def GetLinearAngles(event, linearFitParameters):
+# Doesn't actually use the track function parameter!
+def GetLinearAngles(track, linearFitParameters):
 	thetaXZprimeList = []
 	thetaYZprimeList = []
 	
@@ -270,6 +246,73 @@ def GetLinearAngles(event, linearFitParameters):
 	
 	return [thetaXZprimeList, thetaYZprimeList]
 
-# Perform sigmaRMS, sigmaHL, and sigmaRMS analysis
+# Perform sigmaRMS, sigmaHL, and sigmaRES analysis
+# Gaussian distribution of x with standard deviation of sigma
+def Gauss(x,sigma,a,x_c):
+	return a*np.exp(-(x-x_c)**2 / (2*sigma**2))
+
+# Provide angleList = [[[[thetaXZprime1,thetaXZprime2,thetaXZprime3,...],[thetaYZprime1,thetaYZprime2,thetaYZprime3,...],track2,track3,...],event2,event3,...]
+def GetSigmaRMS_vals(angleList):
+	sigmaRMS_vals = []
+	
+	maxAngleNum = 0
+	for event in angleList:
+		for track in event:
+			maxAngleNumForThisEvent = len(track[0])
+			if maxAngleNum < maxAngleNumForThisEvent:
+				maxAngleNum = maxAngleNumForThisEvent
+	
+	transposedThetaXZprimeList = [[] for angle in np.arange(0,maxAngleNum)]
+	transposedThetaYZprimeList = [[] for angle in np.arange(0,maxAngleNum)]
+	
+	for eventIndex in np.arange(0,len(angleList)):
+		event = angleList[eventIndex]
+		for trackIndex in np.arange(0,len(event)):
+			thetaXZprimeList,thetaYZprimeList = event[trackIndex]
+			for angleIndex in np.arange(0,len(thetaXZprimeList)):
+				transposedThetaXZprimeList[angleIndex].append(thetaXZprimeList[angleIndex])
+				transposedThetaYZprimeList[angleIndex].append(thetaYZprimeList[angleIndex])
+	"""
+	print(transposedThetaXZprimeList)
+	print()
+	print(transposedThetaYZprimeList)
+	print(transposedThetaXZprimeList[0])"""
+	# ANGLES ARE DIFFERENT AGAIN FOR LATER SEGMENTS AHHHH
+	# MAYBE BECAUSE OF LONG SEGMENT PROBLEM??? YES PROBABLY MAKING DIFFERNCE
+	
+	for angleListIndex in np.arange(0,len(transposedThetaXZprimeList)):
+		"""thetaXZprime_popt, thetaXZprime_pcov = optimize.curve_fit(Gauss,transposedThetaXZprimeList[angleListIndex])
+		thetaYZprime_popt, thetaYZprime_pcov = optimize.curve_fit(Gauss, transposedThetaYZprimeList[angleListIndex])
+		
+		print("ThetaXZprime sigmaRMS vals")
+		print(angleListIndex, ":")
+		print(thetaXZprime_popt)
+		print(thetaXZprime_pcov)
+		
+		print("ThetaYZprime sigmaRMS vals")
+		print(angleListIndex, ":")
+		print(thetaYZprime_popt)
+		print(thetaYZprime_pcov)"""
+		
+		thetaXZprime_mu, thetaXZprime_stdev = norm.fit(transposedThetaXZprimeList[angleListIndex])
+		thetaYZprime_mu, thetaYZprime_stdev = norm.fit(transposedThetaYZprimeList[angleListIndex])
+		
+		print()
+		print("N =", len(transposedThetaXZprimeList[angleListIndex]))
+		
+		print()
+		print("ThetaXZprime sigmaRMS vals")
+		print(angleListIndex, ":")
+		print("mu =", thetaXZprime_mu)
+		print("stdev =", thetaXZprime_stdev*1000)
+		
+		print()
+		print("ThetaYZprime sigmaRMS vals")
+		print(angleListIndex, ":")
+		print("mu =", thetaYZprime_mu)
+		print("stdev =", thetaYZprime_stdev*1000)
+		
+		print()
+
 
 # Implement MCS methods for estimating momentum
