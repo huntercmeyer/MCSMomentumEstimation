@@ -79,6 +79,7 @@ for eventIndex in np.arange(0,len(sortedTrueData)):
 
 # Recreate sigmaRMS, sigmaHL, and sigmaRES analysis plots
 truePolygonalSigmaRMS_vals = MCS.GetSigmaRMS_vals(truePolygonalAngles)
+print(truePolygonalSigmaRMS_vals)
 
 # Recreate final MCS Momentum Estimation Methods:
 # Likelihoods

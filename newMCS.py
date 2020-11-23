@@ -89,6 +89,7 @@ def OrganizeTrackDataIntoSegments(track,segmentLength = 14.0,forceSegmentLength 
 		elif diff > 14:
 			print("Solve")
 			# Need to solve this issue.
+			# is this even happening?
 		else:
 			segments[segmentNum].append(currentPoint)
 		
@@ -255,6 +256,7 @@ def Gauss(x,sigma,a,x_c):
 def GetSigmaRMS_vals(angleList):
 	sigmaRMS_vals = []
 	
+	# Get the maximum angle num for building the data structure
 	maxAngleNum = 0
 	for event in angleList:
 		for track in event:
@@ -262,9 +264,11 @@ def GetSigmaRMS_vals(angleList):
 			if maxAngleNum < maxAngleNumForThisEvent:
 				maxAngleNum = maxAngleNumForThisEvent
 	
+	# Build the data structure that will host the angle data
 	transposedThetaXZprimeList = [[] for angle in np.arange(0,maxAngleNum)]
 	transposedThetaYZprimeList = [[] for angle in np.arange(0,maxAngleNum)]
 	
+	# Transpose the input data so it can be properly processed
 	for eventIndex in np.arange(0,len(angleList)):
 		event = angleList[eventIndex]
 		for trackIndex in np.arange(0,len(event)):
@@ -272,31 +276,13 @@ def GetSigmaRMS_vals(angleList):
 			for angleIndex in np.arange(0,len(thetaXZprimeList)):
 				transposedThetaXZprimeList[angleIndex].append(thetaXZprimeList[angleIndex])
 				transposedThetaYZprimeList[angleIndex].append(thetaYZprimeList[angleIndex])
-	"""
-	print(transposedThetaXZprimeList)
-	print()
-	print(transposedThetaYZprimeList)
-	print(transposedThetaXZprimeList[0])"""
-	# ANGLES ARE DIFFERENT AGAIN FOR LATER SEGMENTS AHHHH
-	# MAYBE BECAUSE OF LONG SEGMENT PROBLEM??? YES PROBABLY MAKING DIFFERNCE
 	
+	# Calculate sigmaRMS for each segment based on transposed input data
 	for angleListIndex in np.arange(0,len(transposedThetaXZprimeList)):
-		"""thetaXZprime_popt, thetaXZprime_pcov = optimize.curve_fit(Gauss,transposedThetaXZprimeList[angleListIndex])
-		thetaYZprime_popt, thetaYZprime_pcov = optimize.curve_fit(Gauss, transposedThetaYZprimeList[angleListIndex])
-		
-		print("ThetaXZprime sigmaRMS vals")
-		print(angleListIndex, ":")
-		print(thetaXZprime_popt)
-		print(thetaXZprime_pcov)
-		
-		print("ThetaYZprime sigmaRMS vals")
-		print(angleListIndex, ":")
-		print(thetaYZprime_popt)
-		print(thetaYZprime_pcov)"""
-		
 		thetaXZprime_mu, thetaXZprime_stdev = norm.fit(transposedThetaXZprimeList[angleListIndex])
 		thetaYZprime_mu, thetaYZprime_stdev = norm.fit(transposedThetaYZprimeList[angleListIndex])
 		
+		# Manually check that sigmaRMS values are correct by crosschecking with Root
 		print()
 		print("N =", len(transposedThetaXZprimeList[angleListIndex]))
 		
@@ -313,6 +299,9 @@ def GetSigmaRMS_vals(angleList):
 		print("stdev =", thetaYZprime_stdev*1000)
 		
 		print()
+		
+		sigmaRMS_vals.append([thetaXZprime_stdev,thetaYZprime_stdev])
 
+	return sigmaRMS_vals
 
 # Implement MCS methods for estimating momentum
