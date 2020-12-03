@@ -28,6 +28,11 @@ def OrganizeRecoDataIntoEvents(fileName):
 
 	return eventData
 
+# def OrganizeTrueDataIntoEvents(fileName):
+# Will be a function just like the reco one, except will sort away the momentum info
+# And will separate into individual MCParticle containers, as opposed to Track containers.
+# This will allow everything else to work basically the same
+
 # Returned Organizational structure:
 # [[[x1,y1,z1],trajectoryPoint2,trajectoryPoint3],segment2,segment3,...] = iTrack
 def OrganizeTrackDataIntoSegments(track,segmentLength = 14.0,forceSegmentLength = False):
@@ -247,15 +252,10 @@ def GetLinearAngles(track, linearFitParameters):
 	
 	return [thetaXZprimeList, thetaYZprimeList]
 
-# Perform sigmaRMS, sigmaHL, and sigmaRES analysis
-# Gaussian distribution of x with standard deviation of sigma
-def Gauss(x,sigma,a,x_c):
-	return a*np.exp(-(x-x_c)**2 / (2*sigma**2))
-
 # Provide angleList = [[[[thetaXZprime1,thetaXZprime2,thetaXZprime3,...],[thetaYZprime1,thetaYZprime2,thetaYZprime3,...],track2,track3,...],event2,event3,...]
-def GetSigmaRMS_vals(angleList):
-	sigmaRMS_vals = []
-	
+# This function will group the data from lots of events,tracks, and segments and will group the data such that all angle measurements from segment1 will be grouped together, all angle measurements corresponding to segment 2 will be grouped together, and so on
+# Returned format: [[[thetaXZprime_segment1_1, thetaXZprime_segment1_2, ...], XZangleMeasurementsXZ2, XZangleMeasurements3, ...],[[thetaYZprime_segment1_1, thetaYZprime_segment1_2, ...], YZangleMeasurements2, YZangleMeasurements3, ...]]
+def GroupAngleDataIntoSegments(angleList):
 	# Get the maximum angle num for building the data structure
 	maxAngleNum = 0
 	for event in angleList:
@@ -276,15 +276,47 @@ def GetSigmaRMS_vals(angleList):
 			for angleIndex in np.arange(0,len(thetaXZprimeList)):
 				transposedThetaXZprimeList[angleIndex].append(thetaXZprimeList[angleIndex])
 				transposedThetaYZprimeList[angleIndex].append(thetaYZprimeList[angleIndex])
+				
+	return [transposedThetaXZprimeList, transposedThetaYZprimeList]
+
+# Perform sigmaRMS, sigmaHL, and sigmaRES analysis
+# Gaussian distribution of x with standard deviation of sigma
+def Gauss(x,sigma,a,x_c):
+	return a*np.exp(-(x-x_c)**2 / (2*sigma**2))
+
+# Provide angleList = [[[thetaXZprime_segment1_1, thetaXZprime_segment1_2, ...], XZangleMeasurementsXZ2, XZangleMeasurements3, ...],[[thetaYZprime_segment1_1, thetaYZprime_segment1_2, ...], YZangleMeasurements2, YZangleMeasurements3, ...]]
+def GetSigmaRMS_vals(groupedAngleMeasurements):
+	sigmaRMS_vals = []
+	"""
+	# Get the maximum angle num for building the data structure
+	maxAngleNum = 0
+	for event in angleList:
+		for track in event:
+			maxAngleNumForThisEvent = len(track[0])
+			if maxAngleNum < maxAngleNumForThisEvent:
+				maxAngleNum = maxAngleNumForThisEvent
 	
+	# Build the data structure that will host the angle data
+	transposedThetaXZprimeList = [[] for angle in np.arange(0,maxAngleNum)]
+	transposedThetaYZprimeList = [[] for angle in np.arange(0,maxAngleNum)]
+	
+	# Transpose the input data so it can be properly processed
+	for eventIndex in np.arange(0,len(angleList)):
+		event = angleList[eventIndex]
+		for trackIndex in np.arange(0,len(event)):
+			thetaXZprimeList,thetaYZprimeList = event[trackIndex]
+			for angleIndex in np.arange(0,len(thetaXZprimeList)):
+				transposedThetaXZprimeList[angleIndex].append(thetaXZprimeList[angleIndex])
+				transposedThetaYZprimeList[angleIndex].append(thetaYZprimeList[angleIndex])
+	"""
 	# Calculate sigmaRMS for each segment based on transposed input data
-	for angleListIndex in np.arange(0,len(transposedThetaXZprimeList)):
-		thetaXZprime_mu, thetaXZprime_stdev = norm.fit(transposedThetaXZprimeList[angleListIndex])
-		thetaYZprime_mu, thetaYZprime_stdev = norm.fit(transposedThetaYZprimeList[angleListIndex])
+	for angleListIndex in np.arange(0,len(groupedAngleMeasurements[0])):
+		thetaXZprime_mu, thetaXZprime_stdev = norm.fit(groupedAngleMeasurements[0][angleListIndex])
+		thetaYZprime_mu, thetaYZprime_stdev = norm.fit(groupedAngleMeasurements[1][angleListIndex])
 		
 		# Manually check that sigmaRMS values are correct by crosschecking with Root
-		print()
-		print("N =", len(transposedThetaXZprimeList[angleListIndex]))
+		"""print()
+		print("N =", len(groupedAngleMeasurements[0][angleListIndex]))
 		
 		print()
 		print("ThetaXZprime sigmaRMS vals")
@@ -299,6 +331,7 @@ def GetSigmaRMS_vals(angleList):
 		print("stdev =", thetaYZprime_stdev*1000)
 		
 		print()
+		"""
 		
 		sigmaRMS_vals.append([thetaXZprime_stdev,thetaYZprime_stdev])
 
