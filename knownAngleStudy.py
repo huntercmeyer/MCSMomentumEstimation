@@ -1,6 +1,7 @@
 import numpy as np
 import newMCS as MCS
 import matplotlib.pyplot as plt
+import sys
 
 # Parameters
 truePosInfo = "500_mu_1_GeV_start_beam-entry_dir_35_-45_truePosInfo.txt"
@@ -9,12 +10,22 @@ maxEventNum = 500
 eventList = [0,1] # List of events we are working with
 ignoreEventList = True
 titleFontSize = 8
+forceRecoSegmentLength = False
 
-# Sort trajectory points corresponding to each event into a List
-# events = MCS.OrganizeTrueDataIntoEvents(truePosInfo)
+################################################################
+# Analyze Reco Tracks
+################################################################
+
+# ==============================================================
+# Process recoPosInfo so that it is separated by events and by tracks (segments are not yet formed)
+# recoEvents data format:
+# [[[[x1,y1,z1],trajectoryPoint2,trajectoryPoint3,...],track2,track3,...],event2,event3,...]
+# ==============================================================
+
+# Process for all events from recoPosInfo inputFile
 recoEvents = MCS.OrganizeRecoDataIntoEvents(recoPosInfo)
 
-# Remove all events that are not in eventList, unless ignoreEventList is True
+# Extra processing to remove events that are not in the eventList, unless ignoreEventList = True
 if not ignoreEventList:
 	tempEvents = []
 	for eventNum in np.arange(0,len(recoEvents)):
@@ -23,71 +34,111 @@ if not ignoreEventList:
 			
 	recoEvents = tempEvents
 
-# If you want to know the eventNum of events[eventIndex], use eventList[eventIndex]
-# This code here allows this to be true, regardless of ignoreEventList
+# Modify eventList if ignoreEventList = True
+# 	If you want to know the eventNum of events[eventIndex], use eventList[eventIndex]
+#	This code here allows this to be true, regardless of ignoreEventList
 if ignoreEventList:
 	eventList = [i for i in np.arange(0,maxEventNum)]
 
-# Sort each track's data into segments, forcing the segment length to be exactly the same
-# sortedRecoData Organizational structure:
+# ==============================================================
+# Process recoEvents into segmentedRecoData
+# segmentedRecoData data format:
 # [[[[[x1,y1,z1],trajectoryPoint2,trajectoryPoint3,...],segment2,segment3,...],track2,track3,...],event2,event3,...]
-sortedRecoData = []
+# (just like recoEvents, except the list of trajectory points are now segmented
+# Force segmentLength by setting forceRecoSegmentLength = True in parameters at the top
+# ==============================================================
+
+segmentedRecoData = []
 for eventIndex in np.arange(0,len(recoEvents)):
 	event = recoEvents[eventIndex]
-	sortedRecoData.append([])
+	segmentedRecoData.append([])
 	for trackIndex in np.arange(0,len(event)):
 		track = event[trackIndex]
-		sortedData = MCS.OrganizeTrackDataIntoSegments(track,14.0,False)
-		sortedRecoData[eventIndex].append(sortedData)
+		sortedData = MCS.OrganizeTrackDataIntoSegments(track,14.0,forceRecoSegmentLength)
+		segmentedRecoData[eventIndex].append(sortedData)
 
-# Get Barycenters of each segment in each track in each event
-# Does not get the barycenter of the final segment, which is not 14-cm
+# ==============================================================
+# Process segmentedRecoData to form recoBarycentersList
+# recoBarycentersList data format:
+# [[[[x_avg,y_avg,z_avg],segment2,segment3,...],track2,track3,...],event2,event3,...]
+# Does not get the fit parameters of the final segment, which is not 14-cm
+# ==============================================================
+
 recoBarycentersList = []
-for eventIndex in np.arange(0,len(sortedRecoData)):
-	event = sortedRecoData[eventIndex]
+for eventIndex in np.arange(0,len(segmentedRecoData)):
+	event = segmentedRecoData[eventIndex]
 	recoBarycentersList.append([])
 	for trackIndex in np.arange(0,len(event)):
 		track = event[trackIndex]
 		recoBarycentersList[eventIndex].append(MCS.GetBarycenters(track))
 
-# Get Linear Fit Parameters of each segment in each track in each event
+# ==============================================================
+# Process segmentedRecoData to form recoLinearFitParametersList
+# recoLinearFitParametersList data format:
+# [[[[A,B,C,D],segment2,segment3,...],track2,track3,...],event2,event3,...]
 # Does not get the fit parameters of the final segment, which is not 14-cm
+# ==============================================================
+
 recoLinearFitParametersList = []
-for eventIndex in np.arange(0,len(sortedRecoData)):
-	event = sortedRecoData[eventIndex]
+for eventIndex in np.arange(0,len(segmentedRecoData)):
+	event = segmentedRecoData[eventIndex]
 	recoLinearFitParametersList.append([])
 	for trackIndex in np.arange(0,len(event)):
 		track = event[trackIndex]
 		recoLinearFitParametersList[eventIndex].append(MCS.GetLinearFitParameters(track))
 
-# Get Polygonal Angles from each segment in each track, using the barycenters
-recoPolygonalAngles = []
-for eventIndex in np.arange(0,len(sortedRecoData)):
-	event = sortedRecoData[eventIndex]
-	recoPolygonalAngles.append([])
+# ==============================================================
+# Process recoBarycentersList to form recoPolygonalAnglesList
+# recoPolygonalAnglesList data format:
+# [[[[thetaXZprime1,thetaXZprime2,thetaXZprime3,...],thetaYZprimeList],track2,track3,...],event2,event3,...] (polygonal angles)
+# ==============================================================
+recoPolygonalAnglesList = []
+for eventIndex in np.arange(0,len(segmentedRecoData)):
+	event = segmentedRecoData[eventIndex]
+	recoPolygonalAnglesList.append([])
 	for trackIndex in np.arange(0,len(event)):
+		firstPoint = event[trackIndex][0][0]
 		barycenters = recoBarycentersList[eventIndex][trackIndex]
-		recoPolygonalAngles[eventIndex].append(MCS.GetPolygonalAngles(track,barycenters))
+		recoPolygonalAnglesList[eventIndex].append(MCS.GetPolygonalAngles(firstPoint,barycenters))
 
-# Get Linear Angles from each segment in each event, using the linear fit parameters
-recoLinearAngles = []
-for eventIndex in np.arange(0,len(sortedRecoData)):
-	event = sortedRecoData[eventIndex]
-	recoLinearAngles.append([])
+# ==============================================================
+# Process recoLinearFitParametersList to form recoLinearAnglesList
+# recoPolygonalAnglesList data format:
+# [[[[thetaXZprime1,thetaXZprime2,thetaXZprime3,...],thetaYZprimeList],track2,track3,...],event2,event3,...] (linear angles)
+# ==============================================================
+
+recoLinearAnglesList = []
+for eventIndex in np.arange(0,len(segmentedRecoData)):
+	event = segmentedRecoData[eventIndex]
+	recoLinearAnglesList.append([])
 	for trackIndex in np.arange(0,len(event)):
 		parameters = recoLinearFitParametersList[eventIndex][trackIndex]
-		recoLinearAngles[eventIndex].append(MCS.GetLinearAngles(event,parameters))
+		recoLinearAnglesList[eventIndex].append(MCS.GetLinearAngles(parameters))
 
-# Group data from separate tracks (across all events) into a format for sigmaRMS processing.
-# Group XZ measurements into a List that contains a List corresponding to segments.  Each entry in that List is a List that contains the angle measurements from different tracks that all correspond to that segment.
-# Do the same for YZ and return in a List so that they're together
-groupedPolyAngleMeasurements = MCS.GroupAngleDataIntoSegments(recoPolygonalAngles)
-groupedLinearAngleMeasurements = MCS.GroupAngleDataIntoSegments(recoLinearAngles)
+# ==============================================================
+# Reprocess recoPolygonalAnglesList and recoLinearAnglesList so that they're grouped by segment, rather than by track/event
+# This reduces the size of the array to the form:
+# [[[thetaXZprime_segment1_1,thetaXZprime_segment1_2,...],XZangleMeasurementsXZ2,XZangleMeasurements3,...],segmentedThetaYZprimeList]
+# We lose track and event separation from this!
+# ==============================================================
+
+recoGroupedPolyAngleMeasurements = MCS.GroupAngleDataIntoSegments(recoPolygonalAnglesList)
+recoGroupedLinearAngleMeasurements = MCS.GroupAngleDataIntoSegments(recoLinearAnglesList)
+
+# Recreate sigmaRMS, sigmaHL, and sigmaRES analysis plots
+recoPolygonalSigmaRMS_vals = MCS.GetSigmaRMS_vals(recoGroupedPolyAngleMeasurements)
+recoLinearSigmaRMS_vals = MCS.GetSigmaRMS_vals(recoGroupedLinearAngleMeasurements)
+
+################################################################
+# Analyze True Tracks (MCParticle's)
+################################################################
+
+trueEvents, trueMomentumData = MCS.OrganizeTrueDataIntoEvents(truePosInfo)
 
 # Plot angle measurements for each segment
 # First need to make the arrays to plots
-poly_thetaXZprime_vals = groupedPolyAngleMeasurements[0]
-poly_thetaYZprime_vals = groupedPolyAngleMeasurements[1]
+poly_thetaXZprime_vals = recoGroupedPolyAngleMeasurements[0]
+poly_thetaYZprime_vals = recoGroupedPolyAngleMeasurements[1]
 poly_xVals = []
 yVals_polyThetaXZprime = []
 yVals_polyThetaYZprime = []
@@ -96,8 +147,8 @@ for segmentNum in range(0,len(poly_thetaXZprime_vals)):
 	yVals_polyThetaXZprime.extend(1000*x for x in poly_thetaXZprime_vals[segmentNum])
 	yVals_polyThetaYZprime.extend(1000*x for x in poly_thetaYZprime_vals[segmentNum])
 
-linear_thetaXZprime_vals = groupedLinearAngleMeasurements[0]
-linear_thetaYZprime_vals = groupedLinearAngleMeasurements[1]
+linear_thetaXZprime_vals = recoGroupedLinearAngleMeasurements[0]
+linear_thetaYZprime_vals = recoGroupedLinearAngleMeasurements[1]
 linear_xVals = []
 yVals_linearThetaXZprime = []
 yVals_linearThetaYZprime = []
@@ -135,12 +186,8 @@ ax4.set_ylabel("ThetaYZprime")
 plt.tight_layout()
 plt.savefig("angles.png",bbox_inches = 'tight')
 
-# Recreate sigmaRMS, sigmaHL, and sigmaRES analysis plots
-truePolygonalSigmaRMS_vals = MCS.GetSigmaRMS_vals(groupedPolyAngleMeasurements)
-print(truePolygonalSigmaRMS_vals)
 
-trueLinearSigmaRMS_vals = MCS.GetSigmaRMS_vals(groupedLinearAngleMeasurements)
-print(trueLinearSigmaRMS_vals)
+# Plot sigmaRMS
 
 fig = plt.figure()
 ax1 = plt.subplot(221) # PolyXZ
@@ -148,30 +195,28 @@ ax3 = plt.subplot(223) # PolyYZ
 ax2 = plt.subplot(222) # LinearXZ
 ax4 = plt.subplot(224) # LinearYZ
 
-ax1.plot(range(0,len(np.transpose(truePolygonalSigmaRMS_vals)[0])), np.transpose(truePolygonalSigmaRMS_vals)[0],'o')
+ax1.plot(range(0,len(np.transpose(recoPolygonalSigmaRMS_vals)[0])), np.transpose(recoPolygonalSigmaRMS_vals)[0],'o')
 ax1.set_title("Poly ThetaXZprime sigmaRMS vs. Segment #", fontsize = titleFontSize)
 ax1.set_xlabel("Segment #")
 ax1.set_ylabel("sigmaRMS")
 
-ax3.plot(range(0,len(np.transpose(truePolygonalSigmaRMS_vals)[1])), np.transpose(truePolygonalSigmaRMS_vals)[1],'o')
+ax3.plot(range(0,len(np.transpose(recoPolygonalSigmaRMS_vals)[1])), np.transpose(recoPolygonalSigmaRMS_vals)[1],'o')
 ax3.set_title("Poly ThetaYZprime sigmaRMS vs. Segment #", fontsize = titleFontSize)
 ax3.set_xlabel("Segment #")
 ax3.set_ylabel("sigmaRMS")
 
-ax2.plot(range(0,len(np.transpose(trueLinearSigmaRMS_vals)[0])), np.transpose(trueLinearSigmaRMS_vals)[0],'o')
+ax2.plot(range(0,len(np.transpose(recoLinearSigmaRMS_vals)[0])), np.transpose(recoLinearSigmaRMS_vals)[0],'o')
 ax2.set_title("Linear ThetaXZprime sigmaRMS vs. Segment #", fontsize = titleFontSize)
 ax2.set_xlabel("Segment #")
 ax2.set_ylabel("sigmaRMS")
 
-ax4.plot(range(0,len(np.transpose(trueLinearSigmaRMS_vals)[1])), np.transpose(trueLinearSigmaRMS_vals)[1],'o')
+ax4.plot(range(0,len(np.transpose(recoLinearSigmaRMS_vals)[1])), np.transpose(recoLinearSigmaRMS_vals)[1],'o')
 ax4.set_title("Linear ThetaYZprime sigmaRMS vs. Segment #", fontsize = titleFontSize)
 ax4.set_xlabel("Segment #")
 ax4.set_ylabel("sigmaRMS")
 
 plt.tight_layout()
 plt.savefig("sigmaRMS.png", bbox_inches = 'tight')
-
-# First need to ask how to get momentum for segment due to virtual points
 
 # Recreate final MCS Momentum Estimation Methods:
 # Likelihoods

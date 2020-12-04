@@ -28,10 +28,38 @@ def OrganizeRecoDataIntoEvents(fileName):
 
 	return eventData
 
-# def OrganizeTrueDataIntoEvents(fileName):
 # Will be a function just like the reco one, except will sort away the momentum info
 # And will separate into individual MCParticle containers, as opposed to Track containers.
+# They're the same thing, so there's no point unless I was willing to make classes and things, which I'm not.
 # This will allow everything else to work basically the same
+def OrganizeTrueDataIntoEvents(fileName):
+	eventNum,particleNum,momentum,xVals,yVals,zVals = np.loadtxt(fileName,unpack = True,skiprows=1)
+	
+	# Convert to integers to be used as list index
+	eventNum = eventNum.astype(int)
+	particleNum = particleNum.astype(int)
+	maxEventNum = np.amax(eventNum)
+
+	eventData = [[] for event in range(0,maxEventNum)]
+	momentumData = [[] for event in range(0,maxEventNum)]
+	
+	previousEvent = 0
+	previousParticle = 0
+	eventData[eventNum[0]-1].append([]) # The -1 comes from events starting to count at 1, not 0
+	momentumData[eventNum[0]-1].append([])
+	for entry in range(0,len(eventNum)):
+		event = eventNum[entry] - 1 # The -1 comes from events starting to count at 1, not 0
+		particle = particleNum[entry]
+		if particle > previousParticle or event > previousEvent:
+			eventData[event].append([])
+			momentumData[event].append([])
+		eventData[event][particle].append([xVals[entry],yVals[entry],zVals[entry]])
+		momentumData[event][particle].append(momentum[entry])
+		
+		previousEvent = event
+		previousParticle = particle
+	
+	return (eventData, momentumData)
 
 # Returned Organizational structure:
 # [[[x1,y1,z1],trajectoryPoint2,trajectoryPoint3],segment2,segment3,...] = iTrack
@@ -164,13 +192,13 @@ def GetLinearFitParameters(track):
 	return linearFitParameters
 
 # Get Polygonal Angles between segments
-def GetPolygonalAngles(track, barycenters):
+def GetPolygonalAngles(firstPoint, barycenters):
 	thetaXZprimeList = []
 	thetaYZprimeList = []
 
-	x = barycenters[0][0] - track[0][0][0]
-	y = barycenters[0][1] - track[0][0][1]
-	z = barycenters[0][2] - track[0][0][2]
+	x = barycenters[0][0] - firstPoint[0]
+	y = barycenters[0][1] - firstPoint[1]
+	z = barycenters[0][2] - firstPoint[2]
 	thetaXZ = np.arctan(x/z)
 	thetaYZ = np.arctan(y/z)
 	
@@ -208,7 +236,7 @@ def GetPolygonalAngles(track, barycenters):
 
 # Get Linear Angles between segments
 # Doesn't actually use the track function parameter!
-def GetLinearAngles(track, linearFitParameters):
+def GetLinearAngles(linearFitParameters):
 	thetaXZprimeList = []
 	thetaYZprimeList = []
 	
