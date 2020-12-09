@@ -1,6 +1,13 @@
 import numpy as np
 from scipy.stats import norm
 
+# TODO: Add Documentation
+# Description
+#
+# Input:
+#
+# Output:
+#
 # [[[[x1,y1,z1],trajectoryPoint2,trajectoryPoint3,...],track2,track3,...],event2,event3,...]
 # Will contain multiple tracks if each track was longer than 100 cm
 def OrganizeRecoDataIntoEvents(fileName):
@@ -79,6 +86,9 @@ def OrganizeTrackDataIntoSegments(track,segmentLength = 14.0,forceSegmentLength 
 		previousPoint = track[trajectoryPointNum-1]
 		diff = np.sqrt((currentPoint[0]-previousPoint[0])**2 + (currentPoint[1]-previousPoint[1])**2 + (currentPoint[2]-previousPoint[2])**2)
 		length += diff
+		if length > 30:
+			print(diff)
+			print(previousDiff)
 		if length > segmentLength and previousLength <= segmentLength:
 			# Calculate the point that makes this 14 cm.
 			# Add it to the list for this segment
@@ -130,6 +140,151 @@ def OrganizeTrackDataIntoSegments(track,segmentLength = 14.0,forceSegmentLength 
 		previousDiff = diff
 
 	return segments
+
+# TODO: Clean by grouping momentum and position data into one structure (class?)
+# 	Per traj. point would be simplest...
+# TODO: Every time we change OrganizeTrackDataIntoSegments, reflect changes here!
+# Returned Organizational structure:
+# [[[x1,y1,z1],trajectoryPoint2,trajectoryPoint3],segment2,segment3,...] = iParticle
+def OrganizeParticleDataIntoSegments(particle,particleMomentum,segmentLength = 14.0,forceSegmentLength = False):
+	# List of segments for this particle
+	segments = []
+	segmentMomentumAverages = [] # Only for 14-cm segments
+
+	# Loop through every trajectory point in this particle.
+	length = 0
+	previousLength = 0
+	previousDiff = 0
+	segmentPoints = []
+	segmentNum = 0
+	segments.append([particle[0]])
+	
+	segmentNumPoints = 1
+	currentMomentum = particleMomentum[0]
+	segmentMomentumSum = currentMomentum
+	
+	for trajectoryPointNum in np.arange(1,len(particle)):
+		currentPoint = particle[trajectoryPointNum]
+		previousPoint = particle[trajectoryPointNum-1]
+		diff = np.sqrt((currentPoint[0]-previousPoint[0])**2 + (currentPoint[1]-previousPoint[1])**2 + (currentPoint[2]-previousPoint[2])**2)
+		length += diff
+
+		currentMomentum = particleMomentum[trajectoryPointNum]
+		#print("seg num = ", segmentNum, " curr mom = ",currentMomentum, )
+		if length >= 2*segmentLength:
+			
+			# This is based on the assumption that length is always less than 3*segmentLength
+			# We need to add two virtual points in this block
+			if forceSegmentLength:
+				virtualPoint1 = []
+				multiplier1 = (segmentLength - previousLength)/diff
+				virtualPoint1.append(multiplier1*(currentPoint[0]-previousPoint[0])+previousPoint[0]) #x_v1
+				virtualPoint1.append(multiplier1*(currentPoint[1]-previousPoint[1])+previousPoint[1]) #y_v1
+				virtualPoint1.append(multiplier1*(currentPoint[2]-previousPoint[2])+previousPoint[2]) #z_v1
+				
+				virtualPoint2 = []
+				multiplier2 = (2*segmentLength - previousLength)/diff
+				virtualPoint2.append(multiplier2*(currentPoint[0]-previousPoint[0])+previousPoint[0]) #x_v2
+				virtualPoint2.append(multiplier2*(currentPoint[1]-previousPoint[1])+previousPoint[1]) #y_v2
+				virtualPoint2.append(multiplier2*(currentPoint[2]-previousPoint[2])+previousPoint[2]) #z_v2
+				
+				segments[segmentNum].append(virtualPoint1)
+				
+				segments.append([])
+				segmentNum += 1
+				segments[segmentNum].extend([virtualPoint1,virtualPoint2])
+				segmentMomentumSum = previousMomentum + currentMomentum
+				segmentMomentumAverages.append(segmentMomentumSum / 2)
+				
+				segments.append([])
+				segmentNum += 1
+				segments[segmentNum].append(virtualPoint2)
+				segments[segmentNum].append(currentPoint)
+				length -= 2*segmentLength
+				segmentMomentumSum = currentMomentum
+			else:
+				segmentMomentumAverages.append(segmentMomentumSum / segmentNumPoints)
+				
+				segments.append([])
+				segmentNum += 1
+				segments[segmentNum].append(previousPoint)
+				segments[segmentNum].append(currentPoint)
+				segmentMomentumSum = previousMomentum + currentMomentum
+				segmentMomentumAverages.append(segmentMomentumSum / 2)
+				
+				segments.append([])
+				segmentNum += 1
+				segments[segmentNum].append(currentPoint)
+				length = 0
+				segmentMomentumSum = currentMomentum
+				
+		elif length > segmentLength and previousLength <= segmentLength:
+			# Calculate the point that makes this 14 cm.
+			# Add it to the list for this segment
+			# Increase the segmentNum by 1, then add the new point to that segment.  Then add the current point to this and set the length to be correct.
+			if forceSegmentLength:
+				virtualPoint = []
+				
+				# Calculate the virutal point.
+				multiplier = (segmentLength - previousLength)/(diff)
+				virtualPoint.append(multiplier*(currentPoint[0]-previousPoint[0])+previousPoint[0]) # x_v
+				virtualPoint.append(multiplier*(currentPoint[1]-previousPoint[1])+previousPoint[1]) # y_v
+				virtualPoint.append(multiplier*(currentPoint[2]-previousPoint[2])+previousPoint[2]) # z_v
+				
+				# Fill last point of this segment: The virtual point.
+				segments[segmentNum].append(virtualPoint)
+				
+				# Update to the next segment.
+				segmentNum += 1
+				
+				# Fill the first point of the next segment: The virtual point, then fill the current point
+				segments.append([])
+				segments[segmentNum].append(virtualPoint)
+				segments[segmentNum].append(currentPoint)
+				
+				# Correct the length to be the distance from the virtual point to the current point.
+				length -= segmentLength
+				
+				segmentMomentumAverages.append(segmentMomentumSum / segmentNumPoints)
+				segmentMomentumSum = currentMomentum # Reset for next segment
+				segmentNumPoints = 1 # Reset for next segment
+			else:
+				if segmentLength - previousLength >= length - segmentLength:
+					segments[segmentNum].append(currentPoint)
+					segmentNum += 1
+					segments.append([])
+					segments[segmentNum].append(currentPoint)
+					length = 0
+					
+					segmentMomentumSum += currentMomentum
+					segmentNumPoints += 1
+					#print("One",segmentNumPoints, segmentMomentumSum / segmentNumPoints)
+					segmentMomentumAverages.append(segmentMomentumSum / segmentNumPoints)
+					segmentMomentumSum = currentMomentum # Reset for next segment
+					segmentNumPoints = 1 # Reset for next segment
+				else:
+					segmentNum += 1
+					segments.append([])
+					segments[segmentNum].append(previousPoint)
+					segments[segmentNum].append(currentPoint)
+					length = diff
+					
+					#print("Two",segmentNumPoints, segmentMomentumSum / segmentNumPoints)
+					segmentMomentumAverages.append(segmentMomentumSum / segmentNumPoints)
+					segmentMomentumSum = previousMomentum + currentMomentum # Reset for next segment
+					segmentNumPoints = 2 # Reset for next segment
+			
+		else:
+			segments[segmentNum].append(currentPoint)
+
+			segmentMomentumSum += currentMomentum # true momentum of this point
+			segmentNumPoints += 1
+		
+		previousLength = length
+		previousDiff = diff
+		previousMomentum = currentMomentum
+
+	return segments, segmentMomentumAverages
 
 # Returned Organizational structure:
 # [[x_avg,y_avg,z_avg],segment2,segment3,...]
@@ -307,8 +462,11 @@ def GroupAngleDataIntoSegments(angleList):
 				
 	return [transposedThetaXZprimeList, transposedThetaYZprimeList]
 
+
+
 # Perform sigmaRMS, sigmaHL, and sigmaRES analysis
 # Gaussian distribution of x with standard deviation of sigma
+# This may need to be used in a scipy.optimize.curve_fit function (for uncertainties in PDF)
 def Gauss(x,sigma,a,x_c):
 	return a*np.exp(-(x-x_c)**2 / (2*sigma**2))
 
