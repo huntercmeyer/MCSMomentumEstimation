@@ -7,7 +7,7 @@ import sys
 truePosInfo = "500_mu_1_GeV_start_beam-entry_dir_35_-45_truePosInfo.txt"
 recoPosInfo = "500_mu_1_GeV_start_beam-entry_dir_35_-45_recoPosInfo.txt"
 maxEventNum = 500
-eventList = [0] # List of events we are working with
+eventList = [0,1,2,3,4,5,6,7,8,9] # List of events we are working with
 ignoreEventList = True
 titleFontSize = 8
 forceRecoSegmentLength = True
@@ -61,7 +61,7 @@ for eventIndex in np.arange(0,len(recoEvents)):
 # ==============================================================
 # Calculate segment lengths
 # recoSegmentLengthsList data format:
-# [[[length1,length2,length3,...],track2,track3,...],event2,event3,...]
+# [[[length1,length2,length3,...],track2,track3,...],event2,event3,...] (Linear Lengths)
 # ==============================================================
 
 recoSegmentLengthsList = []
@@ -70,14 +70,17 @@ for eventNum in range(0,len(segmentedRecoData)):
 	recoSegmentLengthsList.append([]) # Append an Event
 	
 	for trackNum in range(0,len(event)):
+		track = event[trackNum]
 		recoSegmentLengthsList[eventNum].append([]) # Append a Track
 		
 		for segment in track:
 			segmentLength = 0
+			#print(segment)
 			for trajectoryPointNum in range(1,len(segment)):
 				previousPoint = segment[trajectoryPointNum-1]
 				currentPoint = segment[trajectoryPointNum]
-				
+				#print(previousPoint)
+				#print(currentPoint)
 				diff = np.sqrt((previousPoint[0]-currentPoint[0])**2+(previousPoint[1]-currentPoint[1])**2+(previousPoint[2]-currentPoint[2])**2)
 				segmentLength += diff
 			
@@ -97,6 +100,27 @@ for eventIndex in np.arange(0,len(segmentedRecoData)):
 	for trackIndex in np.arange(0,len(event)):
 		track = event[trackIndex]
 		recoBarycentersList[eventIndex].append(MCS.GetBarycenters(track))
+
+# ==============================================================
+# Calculate recoPolygonalLengthsList
+# recoPolygonalLengthsList data format:
+# [[[length1,length2,length3,...],track2,track3,...],event2,event3,...] (Polygonal Lengths)
+# ==============================================================
+recoPolygonalLengthsList = []
+for eventIndex in range(0,len(recoBarycentersList)):
+	event = recoBarycentersList[eventIndex]
+	recoPolygonalLengthsList.append([])
+	for trackIndex in range(0,len(event)):
+		track = recoBarycentersList[trackIndex]
+		
+		firstPoint = segmentedRecoData[eventIndex][trackIndex][0][0]
+		segmentLength = np.sqrt((firstPoint[0]-track[0][0])**2 + (firstPoint[1]-track[0][1])**2 + (firstPoint[1]-track[0][2])**2)
+		for barycenterIndex in range(1,len(track)):
+			previousBarycenter = track[barycenterIndex-1]
+			currentBarycenter = track[barycenterIndex]
+			segmentLength += np.sqrt((previousBarycenter[0]-currentBarycenter[0])**2 + (previousBarycenter[1]-currentBarycenter[2])**2 + (previousBarycenter[2]-currentBarycenter[2])**2)
+		
+		recoPolygonalLengthsList[eventIndex].append(segmentLength)
 
 # ==============================================================
 # Process segmentedRecoData to form recoLinearFitParametersList
@@ -141,7 +165,69 @@ for eventIndex in np.arange(0,len(segmentedRecoData)):
 		parameters = recoLinearFitParametersList[eventIndex][trackIndex]
 		recoLinearAnglesList[eventIndex].append(MCS.GetLinearAngles(parameters))
 
-# TODO: Add Momentum Estimation Methods
+# ==============================================================
+# Calculate linear log likelihoods list using the linear angles and linear segment lengths
+# recoLinearLogLikelihoodsList data format:
+# [[[(p,-ln(L)),logLLH2,logLLH3,...],track2,track3,...],event2,event3,...]
+# [p,-ln(L)] are a pair of momentum and the associated log likelihood
+# ==============================================================
+
+recoLinearLogLikelihoodsList = []
+for eventIndex in range(0,len(recoLinearAnglesList)): #recoLinearAnglesList[0]
+	eventAngleData = recoLinearAnglesList[eventIndex]
+	eventSegmentLengthData = recoSegmentLengthsList[eventIndex]
+	if len(eventAngleData) != len(eventSegmentLengthData):
+		sys.exit("Lengths of list not matching (1)")
+	recoLinearLogLikelihoodsList.append([])
+	for trackIndex in range(0,len(eventAngleData)):
+		print("this")
+		trackAngleData = eventAngleData[trackIndex]
+		trackSegmentLengthData = eventSegmentLengthData[trackIndex]
+		if len(trackAngleData[0]) != len(trackSegmentLengthData)-2:
+			sys.exit("Lengths of list not matching (2)")
+		
+		thetaXZprimeList = trackAngleData[0]
+		thetaYZprimeList = trackAngleData[1]
+		if len(thetaXZprimeList) != len(thetaYZprimeList):
+			sys.exit("Lengths of list not matching (3)")
+		
+		possibleMomentumList = np.arange(0.1,6.0,0.01)
+		logLLH_List = MCS.GetLogLikelihoods(thetaXZprimeList, thetaYZprimeList, trackSegmentLengthData[1:], possibleMomentumList)
+		if len(logLLH_List) != len(possibleMomentumList):
+			sys.exit("Lengths of list not matching (4)")
+		recoLinearLogLikelihoodsList[eventIndex].append(logLLH_List)
+
+# ==============================================================
+# Calculate Linear MCSMomentum List using the linear log likelihoods
+# recoLinearMCSMomentumList data format:
+# [[track1_MCSMomentum,track2_MCSMomentum,track3_MCSMomentum,...],event2,event3,...]
+# ==============================================================
+recoLinearMCSMomentumList = []
+for eventIndex in range(0,len(recoLinearLogLikelihoodsList)):
+	eventLogLikelihoods = recoLinearLogLikelihoodsList[eventIndex]
+	recoLinearMCSMomentumList.append([])
+	for trackIndex in range(0,len(eventLogLikelihoods)):
+		trackLogLikelihoods = eventLogLikelihoods[trackIndex]
+		
+		tranposed = np.transpose(trackLogLikelihoods)
+		minIndex = np.argmin(tranposed[1])
+		momentum = trackLogLikelihoods[minIndex][0]
+		momentum += MCS.deltaP(1000*momentum,14)
+		recoLinearMCSMomentumList[eventIndex].append(momentum)
+		
+		print("Event: ", eventIndex, "Track: ", trackIndex, "Momentum: ", momentum)
+
+print(recoLinearMCSMomentumList)
+# TODO: Get Polygonal Lengths List
+# TODO: recoPolyLogLikelihoodsList
+# TODO: recoPolyMCSMomentumList
+# TODO: trueLinearLogLikelihoodsList
+# TODO: trueLinearMCSMomentumList
+# TODO: truePolyLogLikelihoodsList
+# TODO: truePolyMCSMomentumList
+# TODO: Plot MCS Momentum vs. True Momentum (v easy)
+# TODO: Calculate and Plot sigmaHL vs. Segment Number
+# TODO: Calculate and Plot sigmaRES vs. Segment Number
 
 ################################################################
 # MARK: Section 2: Analyze True Tracks (MCParticle's)
@@ -172,7 +258,7 @@ if not ignoreEventList:
 			
 	trueEvents = tempEvents
 	trueMomentumData = tempMomentumData
-
+	
 # ==============================================================
 # Process trueEvents into segmentedTrueData
 # segmentedTrueData data format:
@@ -280,7 +366,7 @@ for eventIndex in np.arange(0,len(segmentedTrueData)):
 	for particleIndex in np.arange(0,len(event)):
 		parameters = trueLinearFitParametersList[eventIndex][particleIndex]
 		trueLinearAnglesList[eventIndex].append(MCS.GetLinearAngles(parameters))
-
+"""
 # Print checks!
 for eventIndex in range(0,len(segmentedTrueData)):
 	particlePositions = segmentedTrueData[eventIndex][0]
@@ -331,9 +417,10 @@ for eventIndex in range(0,len(segmentedRecoData)):
 				segmentLength += diff
 			if segmentLength > 15:
 				print("Segment: ", segmentNum, "length = ",segmentLength)
+"""
 
 # There are several events where weird stuff happens, but it's necessary to worry about now.
-# TODO: Check # of seg's, specifically with or without forced seg lengths
+# TODO: Plot # of segments, specifically with or without forced seg lengths
 
 # Implement MCS Momentum Estimation Method for True Particles
 
@@ -460,3 +547,20 @@ plt.savefig("sigmaRMS.png", bbox_inches = 'tight')
 ################################################################
 # MARK: Section 5: Momentum Plotting
 ################################################################
+fig = plt.figure()
+ax1 = plt.subplot(121) # Linear
+ax2 = plt.subplot(122) # Polygonal
+
+# Collapse recoLinearMCSMomentumList down to a single array, from one that is separated by tracks
+recoLinearMCSMomentum_vals = []
+N = 0
+for eventIndex in range(0,len(recoLinearMCSMomentumList)):
+	event = recoLinearMCSMomentumList[eventIndex]
+	recoLinearMCSMomentum_vals.extend(event)
+	N += len(event)
+
+print(N)
+print(len(recoLinearMCSMomentum_vals))
+print(recoLinearMCSMomentum_vals)
+ax1.hist(recoLinearMCSMomentum_vals, bins = 100)
+plt.savefig("linearMCSMomentum.png", bbox_inches = 'tight')

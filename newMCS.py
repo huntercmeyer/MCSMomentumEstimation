@@ -86,9 +86,6 @@ def OrganizeTrackDataIntoSegments(track,segmentLength = 14.0,forceSegmentLength 
 		previousPoint = track[trajectoryPointNum-1]
 		diff = np.sqrt((currentPoint[0]-previousPoint[0])**2 + (currentPoint[1]-previousPoint[1])**2 + (currentPoint[2]-previousPoint[2])**2)
 		length += diff
-		if length > 30:
-			print(diff)
-			print(previousDiff)
 		if length > segmentLength and previousLength <= segmentLength:
 			# Calculate the point that makes this 14 cm.
 			# Add it to the list for this segment
@@ -435,6 +432,80 @@ def GetLinearAngles(linearFitParameters):
 	
 	return [thetaXZprimeList, thetaYZprimeList]
 
+# Calculate sigmaHL using the highland formula
+def highland(momentum, length):
+	mass = 0.1056 # units: GeV/c^2
+	kappa = (0.105/(momentum**2)) + 11.004
+	segmentLength = 14
+	return 0.001*kappa*np.sqrt(length/segmentLength)*(1+0.038*np.log(length/segmentLength))*(np.sqrt(mass**2 + momentum**2)/(momentum**2))
+
+def deltaP(momentum, length):
+	#print(momentum)
+	mass = 105.66 # units: MeV/c^2
+	initialE = np.sqrt(mass**2 + momentum**2) # MeV
+	Z, A = 18, 39.948 # For Ar, [A] = g/mol
+	K = 0.307075 # MeV*cm^2/mol
+	I = 188*10**(-6) # MeV
+	m = 0.511 # MeV/c^2, electron mass
+	bg, bb, gg = momentum / mass, momentum**2/(mass**2 + momentum**2), (mass**2 + momentum**2)/(mass**2)
+	rho = 1.396
+	W = (2*m*bb*gg)/(1 + 2*np.sqrt(gg)*m/mass + (m/mass)**2)
+	a, x0, x1, C, k, x = 0.19559, 0.2, 3, 5.2146, 3, np.log10(bg)
+	delta = 0
+	if x >= x1:
+		delta = 2*np.log(10)*x - C
+	elif x >= x0 and x < x1:
+		delta = 2*np.log(10)*x - C + a*(x1-x)**k
+	else:
+		delta = 0
+	
+	# MeV / cm
+	dEdx = rho*K*(Z/A)*(1/bb)*(0.5*np.log(2*m*bb*gg*W/(I**2)) - bb - delta/2)
+	#print("dEdx",dEdx)
+	# Divide by 1000 to convert back to GeV for subtracting from momentum
+	return (momentum - np.sqrt((initialE - dEdx*length)**2 - mass**2))/1000
+
+# Calculate log likelihoods of possible momentum values, given the list of measured angles
+#
+# Parameters:
+# thetaXZprimeList and thetaYZprimeList: arrays of angles of length N, units: radians
+# trackSegmentLengthsData: array of segment length of length N+2 (last value is for non 14-cm segment)
+# possibleMomentumList: array of possible momentum values - Generate -ln(L) of each possible momentum values.  units: GeV/c
+#
+# Returns:
+# logLLH_List = [(p,-ln(L)),logLLH2,logLLH3,...]
+def GetLogLikelihoods(thetaXZprimeList, thetaYZprimeList, trackSegmentLengthsData, possibleMomentumList):
+	logLLH_List = []
+	N = len(thetaXZprimeList)
+	for momentum in possibleMomentumList:
+		#print()
+		#print("NEW POSSIBLE MOMENTUM")
+		p = momentum
+		logLLH = 0.5*(N*np.log(2*np.pi))
+		for angleIndex in range(0,N):
+			if p > 0:
+				thetaXZprime = thetaXZprimeList[angleIndex]
+				thetaYZprime = thetaYZprimeList[angleIndex]
+				length = trackSegmentLengthsData[angleIndex]
+				
+				# Give p as GeV
+				sigmaHL = highland(p, length) # mrad
+				sigmaRES = 0.003 # mrad
+				sigmaRMS = np.sqrt(sigmaHL**2 + sigmaRES**2)
+				
+				logLLH += np.log(sigmaRMS) + 0.5*(thetaXZprime/sigmaRMS)**2 + 0.5*(thetaYZprime/sigmaRMS)**2
+				
+				#print("Before:",p)
+				# Input p as MeV, deltaP returns as GeV and subtract from p, which is GeV
+				p -= deltaP(1000*p,length)
+				#print("After:",p)
+			else:
+				logLLH= 1e9
+				break
+		logLLH_List.append((momentum,logLLH))
+	
+	return logLLH_List
+
 # Provide angleList = [[[[thetaXZprime1,thetaXZprime2,thetaXZprime3,...],[thetaYZprime1,thetaYZprime2,thetaYZprime3,...],track2,track3,...],event2,event3,...]
 # This function will group the data from lots of events,tracks, and segments and will group the data such that all angle measurements from segment1 will be grouped together, all angle measurements corresponding to segment 2 will be grouped together, and so on
 # Returned format: [[[thetaXZprime_segment1_1, thetaXZprime_segment1_2, ...], XZangleMeasurementsXZ2, XZangleMeasurements3, ...],[[thetaYZprime_segment1_1, thetaYZprime_segment1_2, ...], YZangleMeasurements2, YZangleMeasurements3, ...]]
@@ -522,5 +593,3 @@ def GetSigmaRMS_vals(groupedAngleMeasurements):
 		sigmaRMS_vals.append([thetaXZprime_stdev,thetaYZprime_stdev])
 
 	return sigmaRMS_vals
-
-# Implement MCS methods for estimating momentum
