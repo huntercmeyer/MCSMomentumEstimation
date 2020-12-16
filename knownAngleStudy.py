@@ -7,7 +7,7 @@ import sys
 truePosInfo = "500_mu_1_GeV_start_beam-entry_dir_35_-45_truePosInfo.txt"
 recoPosInfo = "500_mu_1_GeV_start_beam-entry_dir_35_-45_recoPosInfo.txt"
 maxEventNum = 500
-eventList = [0]#,1,2,3,4,5,6,7,8,9] # List of events we are working with
+eventList = range(0,100)#[0,1,2,3,4,5,6,7,8,9] # List of events we are working with
 ignoreEventList = False
 titleFontSize = 8
 forceRecoSegmentLength = True
@@ -267,14 +267,6 @@ for eventIndex in range(0,len(recoPolyLogLikelihoodsList)):
 		
 		print("Reco Poly Event: ", eventIndex, "Track: ", trackIndex, "Momentum: ", momentum)
 
-# TODO: trueLinearLogLikelihoodsList
-# TODO: trueLinearMCSMomentumList
-# TODO: truePolyLogLikelihoodsList
-# TODO: truePolyMCSMomentumList
-# TODO: Plot MCS Momentum vs. True Momentum (v easy)
-# TODO: Calculate and Plot sigmaHL vs. Segment Number
-# TODO: Calculate and Plot sigmaRES vs. Segment Number
-
 ################################################################
 # MARK: Section 2: Analyze True Tracks (MCParticle's)
 ################################################################
@@ -342,14 +334,14 @@ for eventNum in range(0,len(segmentedTrueData)):
 	trueSegmentLengthsList.append([]) # Append an Event
 	
 	for particleNum in range(0,len(event)):
-		trueSegmentLengthsList[eventNum].append([]) # Append a Particle
+		particle = event[particleNum]
+		trueSegmentLengthsList[eventNum].append([]) # Append a particle
 		
-		for segment in track:
+		for segment in particle:
 			segmentLength = 0
 			for trajectoryPointNum in range(1,len(segment)):
 				previousPoint = segment[trajectoryPointNum-1]
 				currentPoint = segment[trajectoryPointNum]
-				
 				diff = np.sqrt((previousPoint[0]-currentPoint[0])**2+(previousPoint[1]-currentPoint[1])**2+(previousPoint[2]-currentPoint[2])**2)
 				segmentLength += diff
 			
@@ -369,6 +361,30 @@ for eventIndex in np.arange(0,len(segmentedTrueData)):
 	for particleIndex in np.arange(0,len(event)):
 		particle = event[particleIndex]
 		trueBarycentersList[eventIndex].append(MCS.GetBarycenters(particle))
+
+# ==============================================================
+# Calculate truePolygonalLengthsList
+# truePolygonalLengthsList data format:
+# [[[length1,length2,length3,...],particle2,particle3,...],event2,event3,...] (Polygonal Lengths)
+# ==============================================================
+
+truePolygonalLengthsList = []
+for eventIndex in range(0,len(trueBarycentersList)):
+	event = trueBarycentersList[eventIndex]
+	truePolygonalLengthsList.append([])
+	for particleIndex in range(0,len(event)):
+		barycenters = event[particleIndex]
+		truePolygonalLengthsList[eventIndex].append([])
+		firstPoint = segmentedTrueData[eventIndex][particleIndex][0][0]
+		segmentLength = np.sqrt((firstPoint[0]-barycenters[0][0])**2 + (firstPoint[1]-barycenters[0][1])**2 + (firstPoint[2]-barycenters[0][2])**2)
+		truePolygonalLengthsList[eventIndex][particleIndex].append(segmentLength)
+		
+		for barycenterIndex in range(1,len(barycenters)):
+			previousBarycenter = barycenters[barycenterIndex-1]
+			currentBarycenter = barycenters[barycenterIndex]
+			segmentLength = np.sqrt((previousBarycenter[0]-currentBarycenter[0])**2 + (previousBarycenter[1]-currentBarycenter[1])**2 + (previousBarycenter[2]-currentBarycenter[2])**2)
+			
+			truePolygonalLengthsList[eventIndex][particleIndex].append(segmentLength)
 
 # ==============================================================
 # Process segmentedTrueData to form trueLinearFitParametersList
@@ -468,7 +484,106 @@ for eventIndex in range(0,len(segmentedRecoData)):
 # There are several events where weird stuff happens, but it's necessary to worry about now.
 # TODO: Plot # of segments, specifically with or without forced seg lengths
 
-# Implement MCS Momentum Estimation Method for True Particles
+# ==============================================================
+# Calculate linear log likelihoods list using the linear angles and linear segment lengths
+# trueLinearLogLikelihoodsList data format:
+# [[[(p,-ln(L)),logLLH2,logLLH3,...],particle2,particle3,...],event2,event3,...]
+# [p,-ln(L)] are a pair of momentum and the associated log likelihood
+# ==============================================================
+
+trueLinearLogLikelihoodsList = []
+for eventIndex in range(0,len(trueLinearAnglesList)):
+	eventAngleData = trueLinearAnglesList[eventIndex]
+	eventSegmentLengthData = trueSegmentLengthsList[eventIndex]
+	if len(eventAngleData) != len(eventSegmentLengthData):
+		sys.exit("Lengths of list not matching (1)")
+	trueLinearLogLikelihoodsList.append([])
+	for particleIndex in range(0,len(eventAngleData)):
+		particleAngleData = eventAngleData[particleIndex]
+		particleSegmentLengthData = eventSegmentLengthData[particleIndex]
+		if len(particleAngleData[0]) != len(particleSegmentLengthData)-2:
+			sys.exit("Lengths of list not matching (2)")
+		
+		thetaXZprimeList = particleAngleData[0]
+		thetaYZprimeList = particleAngleData[1]
+		if len(thetaXZprimeList) != len(thetaYZprimeList):
+			sys.exit("Lengths of list not matching (3)")
+		
+		possibleMomentumList = np.arange(0.1,6.0,0.01)
+		logLLH_List = MCS.GetLogLikelihoods(thetaXZprimeList, thetaYZprimeList, particleSegmentLengthData[1:], possibleMomentumList)
+		if len(logLLH_List) != len(possibleMomentumList):
+			sys.exit("Lengths of list not matching (4)")
+		trueLinearLogLikelihoodsList[eventIndex].append(logLLH_List)
+
+# ==============================================================
+# Calculate Linear MCSMomentum List using the linear log likelihoods
+# trueLinearMCSMomentumList data format:
+# [[particle1_MCSMomentum,particle2_MCSMomentum,particle3_MCSMomentum,...],event2,event3,...]
+# ==============================================================
+trueLinearMCSMomentumList = []
+for eventIndex in range(0,len(trueLinearLogLikelihoodsList)):
+	eventLogLikelihoods = trueLinearLogLikelihoodsList[eventIndex]
+	trueLinearMCSMomentumList.append([])
+	for particleIndex in range(0,len(eventLogLikelihoods)):
+		particleLogLikelihoods = eventLogLikelihoods[particleIndex]
+		
+		tranposed = np.transpose(particleLogLikelihoods)
+		minIndex = np.argmin(tranposed[1])
+		momentum = particleLogLikelihoods[minIndex][0]
+		momentum += MCS.deltaP(1000*momentum,14)
+		trueLinearMCSMomentumList[eventIndex].append(momentum)
+		
+		print("True Linear Event: ", eventIndex, "Particle: ", particleIndex, "Momentum: ", momentum)
+
+# ==============================================================
+# Calculate polygonal log likelihoods list using the polygonal angles and polygonal segment lengths
+# truePolyLogLikelihoodsList data format:
+# [[[(p,-ln(L)),logLLH2,logLLH3,...],particle2,particle3,...],event2,event3,...]
+# [p,-ln(L)] are a pair of momentum and the associated log likelihood
+# ==============================================================
+truePolyLogLikelihoodsList = []
+for eventIndex in range(0,len(truePolygonalAnglesList)):
+	eventAngleData = truePolygonalAnglesList[eventIndex]
+	eventSegmentLengthData = truePolygonalLengthsList[eventIndex]
+	if len(eventAngleData) != len(eventSegmentLengthData):
+		sys.exit("Lengths of list not matching (1)")
+	truePolyLogLikelihoodsList.append([])
+	for particleIndex in range(0,len(eventAngleData)):
+		particleAngleData = eventAngleData[particleIndex]
+		particleSegmentLengthData = eventSegmentLengthData[particleIndex]
+		if len(particleAngleData[0]) != len(particleSegmentLengthData)-1:
+			sys.exit("Lengths of list not matching (2)")
+		
+		thetaXZprimeList = particleAngleData[0]
+		thetaYZprimeList = particleAngleData[1]
+		if len(thetaXZprimeList) != len(thetaYZprimeList):
+			sys.exit("Lengths of list not matching (3)")
+		
+		possibleMomentumList = np.arange(0.1,6.0,0.01)
+		logLLH_List = MCS.GetLogLikelihoods(thetaXZprimeList, thetaYZprimeList, particleSegmentLengthData[1:], possibleMomentumList)
+		if len(logLLH_List) != len(possibleMomentumList):
+			sys.exit("Lengths of list not matching (4)")
+		truePolyLogLikelihoodsList[eventIndex].append(logLLH_List)
+
+# ==============================================================
+# Calculate Polygonal MCSMomentum List using the polygonal log likelihoods
+# truePolyMCSMomentumList data format:
+# [[particle1_MCSMomentum,particle2_MCSMomentum,particle3_MCSMomentum,...],event2,event3,...]
+# ==============================================================
+truePolyMCSMomentumList = []
+for eventIndex in range(0,len(truePolyLogLikelihoodsList)):
+	eventLogLikelihoods = truePolyLogLikelihoodsList[eventIndex]
+	truePolyMCSMomentumList.append([])
+	for particleIndex in range(0,len(eventLogLikelihoods)):
+		particleLogLikelihoods = eventLogLikelihoods[particleIndex]
+		
+		tranposed = np.transpose(particleLogLikelihoods)
+		minIndex = np.argmin(tranposed[1])
+		momentum = particleLogLikelihoods[minIndex][0]
+		momentum += MCS.deltaP(1000*momentum,14)
+		truePolyMCSMomentumList[eventIndex].append(momentum)
+		
+		print("True Poly Event: ", eventIndex, "Particle: ", particleIndex, "Momentum: ", momentum)
 
 ################################################################
 # MARK: Section 3: sigmaRMS, sigmaHL, and sigmaRES analysis
@@ -493,6 +608,9 @@ recoLinearSigmaRMS_vals = MCS.GetSigmaRMS_vals(recoGroupedLinearAngleMeasurement
 
 truePolygonalSigmaRMS_vals = MCS.GetSigmaRMS_vals(trueGroupedPolyAngleMeasurements)
 trueLinearSigmaRMS_vals = MCS.GetSigmaRMS_vals(trueGroupedLinearAngleMeasurements)
+
+# TODO: Calculate and Plot sigmaHL vs. Segment Number
+# TODO: Calculate and Plot sigmaRES vs. Segment Number
 
 ################################################################
 # MARK: Section 4: Angle Plotting
@@ -581,32 +699,53 @@ ax4.set_ylabel("sigmaRMS")
 plt.tight_layout()
 plt.savefig("sigmaRMS.png", bbox_inches = 'tight')
 
-# Recreate final MCS Momentum Estimation Methods:
-# Likelihoods
-# Momentum Loss
-"""
-#"""
-
 # Future check:
 # Check if the same points in each segment for a segment with big diff
 
 ################################################################
 # MARK: Section 5: Momentum Plotting
 ################################################################
+
+# ==============================================================
+# Reco MCS Momentum Plotting
+# ==============================================================
+
+# Collapse recoLinearMCSMomentumList down to a single array, from one that is separated by tracks
+recoLinearMCSMomentum_vals = []
+recoPolyMCSMomentum_vals = []
+for eventIndex in range(0,len(recoLinearMCSMomentumList)):
+	linearMCSMomentum_vals = recoLinearMCSMomentumList[eventIndex] # Array of track MCS momentum
+	polyMCSMomentum_vals = recoPolyMCSMomentumList[eventIndex]
+	recoLinearMCSMomentum_vals.extend(linearMCSMomentum_vals)
+	recoPolyMCSMomentum_vals.extend(polyMCSMomentum_vals)
+
 fig = plt.figure()
 ax1 = plt.subplot(121) # Linear
 ax2 = plt.subplot(122) # Polygonal
 
-# Collapse recoLinearMCSMomentumList down to a single array, from one that is separated by tracks
-recoLinearMCSMomentum_vals = []
-N = 0
-for eventIndex in range(0,len(recoLinearMCSMomentumList)):
-	event = recoLinearMCSMomentumList[eventIndex]
-	recoLinearMCSMomentum_vals.extend(event)
-	N += len(event)
-
-print(N)
-print(len(recoLinearMCSMomentum_vals))
-print(recoLinearMCSMomentum_vals)
 ax1.hist(recoLinearMCSMomentum_vals, bins = 100)
-plt.savefig("linearMCSMomentum.png", bbox_inches = 'tight')
+ax2.hist(recoPolyMCSMomentum_vals, bins = 100)
+plt.savefig("recoMCSMomentum.png", bbox_inches = 'tight')
+
+# ==============================================================
+# True MCS Momentum Plotting
+# ==============================================================
+
+# Collapse trueLinearMCSMomentumList down to a single array, from one that is separated by tracks
+trueLinearMCSMomentum_vals = []
+truePolyMCSMomentum_vals = []
+for eventIndex in range(0,len(trueLinearMCSMomentumList)):
+	linearMCSMomentum_vals = trueLinearMCSMomentumList[eventIndex] # Array of track MCS momentum
+	polyMCSMomentum_vals = truePolyMCSMomentumList[eventIndex]
+	trueLinearMCSMomentum_vals.extend(linearMCSMomentum_vals)
+	truePolyMCSMomentum_vals.extend(polyMCSMomentum_vals)
+
+fig = plt.figure()
+ax1 = plt.subplot(121) # Linear
+ax2 = plt.subplot(122) # Polygonal
+
+ax1.hist(trueLinearMCSMomentum_vals, bins = 100)
+ax2.hist(truePolyMCSMomentum_vals, bins = 100)
+plt.savefig("trueMCSMomentum.png", bbox_inches = 'tight')
+
+# TODO: Plot MCS Momentum vs. True Momentum (v easy)
