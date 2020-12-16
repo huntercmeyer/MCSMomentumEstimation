@@ -428,58 +428,6 @@ for eventIndex in np.arange(0,len(segmentedTrueData)):
 	for particleIndex in np.arange(0,len(event)):
 		parameters = trueLinearFitParametersList[eventIndex][particleIndex]
 		trueLinearAnglesList[eventIndex].append(MCS.GetLinearAngles(parameters))
-"""
-# Print checks!
-for eventIndex in range(0,len(segmentedTrueData)):
-	particlePositions = segmentedTrueData[eventIndex][0]
-	particleMomentums = segmentAverageMomentumData[eventIndex][0]
-	particleBarycenters = trueBarycentersList[eventIndex][0]
-	particleLinearFitParameters = trueLinearFitParametersList[eventIndex][0]
-	particlePolyAngles = truePolygonalAnglesList[eventIndex][0]
-	particleLinearAngles = trueLinearAnglesList[eventIndex][0]
-	
-	print("Event: ", eventIndex)
-	print(len(particlePositions),"compare with",len(segmentedRecoData[eventIndex][0]))
-	print(len(particleMomentums))
-	print(len(particleBarycenters))
-	print(len(particleLinearFitParameters))
-	print(len(particlePolyAngles[0]))
-	print(len(particleLinearAngles[0]))
-	
-	print()
-
-for eventIndex in range(0,len(segmentedTrueData)):
-	event = segmentedTrueData[eventIndex]
-	print("Event:",eventIndex)
-	for particle in event:
-		for segmentNum in range(0,len(particle)):
-			segment = particle[segmentNum]
-			segmentLength = 0
-			for trajectoryPointNum in range(1,len(segment)):
-				previousPoint = segment[trajectoryPointNum-1]
-				currentPoint = segment[trajectoryPointNum]
-				
-				diff = np.sqrt((previousPoint[0]-currentPoint[0])**2+(previousPoint[1]-currentPoint[1])**2+(previousPoint[2]-currentPoint[2])**2)
-				segmentLength += diff
-			if segmentLength > 28:
-				print("Segment: ", segmentNum, "length = ",segmentLength)
-
-for eventIndex in range(0,len(segmentedRecoData)):
-	event = segmentedRecoData[eventIndex]
-	print("Event:",eventIndex)
-	for track in event:
-		for segmentNum in range(0,len(track)):
-			segment = track[segmentNum]
-			segmentLength = 0
-			for trajectoryPointNum in range(1,len(segment)):
-				previousPoint = segment[trajectoryPointNum-1]
-				currentPoint = segment[trajectoryPointNum]
-				
-				diff = np.sqrt((previousPoint[0]-currentPoint[0])**2+(previousPoint[1]-currentPoint[1])**2+(previousPoint[2]-currentPoint[2])**2)
-				segmentLength += diff
-			if segmentLength > 15:
-				print("Segment: ", segmentNum, "length = ",segmentLength)
-"""
 
 # There are several events where weird stuff happens, but it's necessary to worry about now.
 # TODO: Plot # of segments, specifically with or without forced seg lengths
@@ -603,11 +551,16 @@ trueGroupedPolyAngleMeasurements = MCS.GroupAngleDataIntoSegments(truePolygonalA
 trueGroupedLinearAngleMeasurements = MCS.GroupAngleDataIntoSegments(trueLinearAnglesList)
 
 # Recreate sigmaRMS, sigmaHL, and sigmaRES analysis plots
+# Get sigmaHL values
+
+# Get sigmaRMS values
 recoPolygonalSigmaRMS_vals = MCS.GetSigmaRMS_vals(recoGroupedPolyAngleMeasurements)
 recoLinearSigmaRMS_vals = MCS.GetSigmaRMS_vals(recoGroupedLinearAngleMeasurements)
 
 truePolygonalSigmaRMS_vals = MCS.GetSigmaRMS_vals(trueGroupedPolyAngleMeasurements)
 trueLinearSigmaRMS_vals = MCS.GetSigmaRMS_vals(trueGroupedLinearAngleMeasurements)
+
+# Get sigmaRES values
 
 # TODO: Calculate and Plot sigmaHL vs. Segment Number
 # TODO: Calculate and Plot sigmaRES vs. Segment Number
@@ -666,7 +619,6 @@ ax4.set_ylabel("ThetaYZprime")
 
 plt.tight_layout()
 plt.savefig("angles.png",bbox_inches = 'tight')
-
 
 # Plot sigmaRMS
 
@@ -747,5 +699,3 @@ ax2 = plt.subplot(122) # Polygonal
 ax1.hist(trueLinearMCSMomentum_vals, bins = 100)
 ax2.hist(truePolyMCSMomentum_vals, bins = 100)
 plt.savefig("trueMCSMomentum.png", bbox_inches = 'tight')
-
-# TODO: Plot MCS Momentum vs. True Momentum (v easy)

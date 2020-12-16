@@ -533,8 +533,6 @@ def GroupAngleDataIntoSegments(angleList):
 				
 	return [transposedThetaXZprimeList, transposedThetaYZprimeList]
 
-
-
 # Perform sigmaRMS, sigmaHL, and sigmaRES analysis
 # Gaussian distribution of x with standard deviation of sigma
 # This may need to be used in a scipy.optimize.curve_fit function (for uncertainties in PDF)
@@ -544,51 +542,11 @@ def Gauss(x,sigma,a,x_c):
 # Provide angleList = [[[thetaXZprime_segment1_1, thetaXZprime_segment1_2, ...], XZangleMeasurementsXZ2, XZangleMeasurements3, ...],[[thetaYZprime_segment1_1, thetaYZprime_segment1_2, ...], YZangleMeasurements2, YZangleMeasurements3, ...]]
 def GetSigmaRMS_vals(groupedAngleMeasurements):
 	sigmaRMS_vals = []
-	"""
-	# Get the maximum angle num for building the data structure
-	maxAngleNum = 0
-	for event in angleList:
-		for track in event:
-			maxAngleNumForThisEvent = len(track[0])
-			if maxAngleNum < maxAngleNumForThisEvent:
-				maxAngleNum = maxAngleNumForThisEvent
-	
-	# Build the data structure that will host the angle data
-	transposedThetaXZprimeList = [[] for angle in np.arange(0,maxAngleNum)]
-	transposedThetaYZprimeList = [[] for angle in np.arange(0,maxAngleNum)]
-	
-	# Transpose the input data so it can be properly processed
-	for eventIndex in np.arange(0,len(angleList)):
-		event = angleList[eventIndex]
-		for trackIndex in np.arange(0,len(event)):
-			thetaXZprimeList,thetaYZprimeList = event[trackIndex]
-			for angleIndex in np.arange(0,len(thetaXZprimeList)):
-				transposedThetaXZprimeList[angleIndex].append(thetaXZprimeList[angleIndex])
-				transposedThetaYZprimeList[angleIndex].append(thetaYZprimeList[angleIndex])
-	"""
+
 	# Calculate sigmaRMS for each segment based on transposed input data
 	for angleListIndex in np.arange(0,len(groupedAngleMeasurements[0])):
 		thetaXZprime_mu, thetaXZprime_stdev = norm.fit(groupedAngleMeasurements[0][angleListIndex])
 		thetaYZprime_mu, thetaYZprime_stdev = norm.fit(groupedAngleMeasurements[1][angleListIndex])
-		
-		# Manually check that sigmaRMS values are correct by crosschecking with Root
-		"""print()
-		print("N =", len(groupedAngleMeasurements[0][angleListIndex]))
-		
-		print()
-		print("ThetaXZprime sigmaRMS vals")
-		print(angleListIndex, ":")
-		print("mu =", thetaXZprime_mu)
-		print("stdev =", thetaXZprime_stdev*1000)
-		
-		print()
-		print("ThetaYZprime sigmaRMS vals")
-		print(angleListIndex, ":")
-		print("mu =", thetaYZprime_mu)
-		print("stdev =", thetaYZprime_stdev*1000)
-		
-		print()
-		"""
 		
 		sigmaRMS_vals.append([thetaXZprime_stdev,thetaYZprime_stdev])
 
