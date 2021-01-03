@@ -7,7 +7,7 @@ import sys
 truePosInfo = "500_mu_1_GeV_start_beam-entry_dir_35_-45_truePosInfo.txt"
 recoPosInfo = "500_mu_1_GeV_start_beam-entry_dir_35_-45_recoPosInfo.txt"
 maxEventNum = 500
-eventList = range(0,100)#[0,1,2,3,4,5,6,7,8,9] # List of events we are working with
+eventList = range(0,10) # List of events we are working with
 ignoreEventList = False
 titleFontSize = 8
 forceRecoSegmentLength = True
@@ -539,7 +539,7 @@ for eventIndex in range(0,len(truePolyLogLikelihoodsList)):
 
 # ==============================================================
 # Reprocess recoPolygonalAnglesList and recoLinearAnglesList so that they're grouped by segment, rather than by track/event
-# This reduces the size of the array to the form:
+# This reduces the shape of the array to the form:
 # [[[thetaXZprime_segment1_1,thetaXZprime_segment1_2,...],XZangleMeasurementsXZ2,XZangleMeasurements3,...],segmentedThetaYZprimeList]
 # We lose track and event separation from this!
 # ==============================================================
@@ -552,6 +552,30 @@ trueGroupedLinearAngleMeasurements = MCS.GroupAngleDataIntoSegments(trueLinearAn
 
 # Recreate sigmaRMS, sigmaHL, and sigmaRES analysis plots
 # Get sigmaHL values
+# Sort true momentum values into segments just like the angles previously (reduce array shape)
+maxSegmentNum = 0
+for event in segmentAverageMomentumData:
+	for particle in event:
+		maxSegmentNumForThisEvent = len(particle)
+		if maxSegmentNum < maxSegmentNumForThisEvent:
+			maxSegmentNum = maxSegmentNumForThisEvent
+
+groupedMomentumVals = [[] for segment in range(0,maxSegmentNum)]
+
+for eventIndex in range(0,len(segmentAverageMomentumData)):
+	event = segmentAverageMomentumData[eventIndex]
+	for particleIndex in range(0,len(event)):
+		particleMomentumVals = event[particleIndex]
+		
+		for segmentIndex in range(0,len(particleMomentumVals)):
+			groupedMomentumVals[segmentIndex].append(particleMomentumVals[segmentIndex])
+
+# Array has been reduced to form groupedMomentumVals, not use to calculate sigmaHL_vals
+averageSegmentMomentumList = [np.mean(x) for x in groupedMomentumVals]
+sigmaHL_vals = [MCS.highland(x, 14) for x in averageSegmentMomentumList]
+# Calculate sigmaHL and sigmaRES easily
+# Plot just like sigmaRMS
+# Put everything into a presentation by 2
 
 # Get sigmaRMS values
 recoPolygonalSigmaRMS_vals = MCS.GetSigmaRMS_vals(recoGroupedPolyAngleMeasurements)
@@ -560,7 +584,35 @@ recoLinearSigmaRMS_vals = MCS.GetSigmaRMS_vals(recoGroupedLinearAngleMeasurement
 truePolygonalSigmaRMS_vals = MCS.GetSigmaRMS_vals(trueGroupedPolyAngleMeasurements)
 trueLinearSigmaRMS_vals = MCS.GetSigmaRMS_vals(trueGroupedLinearAngleMeasurements)
 
+print(len(sigmaHL_vals))
+print(len(recoPolygonalSigmaRMS_vals))
+print(len(recoLinearSigmaRMS_vals))
+print(len(truePolygonalSigmaRMS_vals))
+print(len(trueLinearSigmaRMS_vals))
 # Get sigmaRES values
+
+# MARK: Note to self:
+"""
+On Sunday, Jan 3:
+Task 0:
+Setup a system for saving plots to different folders, add to .gitignore
+
+Task 1:
+Get sigmaRES values
+Compare directly with ROOT calculations
+Plot and make the plots look nice.
+
+Task 2:
+Plot MCS Momentum vs. True Momentum
+Calculate percent bias and resolution, as well as fractional bias and fractional resolution
+How do virtual points affect this?
+
+Week of Jan 4:
+Apply various sigmaRES values and save plots in new system of folders
+Break up into multiple files
+Look at curvy tracks, do they have a larger bias/worse resolution?
+Incorporate into a presentation.
+"""
 
 # TODO: Calculate and Plot sigmaHL vs. Segment Number
 # TODO: Calculate and Plot sigmaRES vs. Segment Number
