@@ -1,17 +1,24 @@
+# TODO: Add a READ_ME
+
 import numpy as np
 import newMCS as MCS
+import printerMCS
 import matplotlib.pyplot as plt
 import sys
+import os
+import shutil
 
 # MARK: Parameters
-truePosInfo = "500_mu_1_GeV_start_beam-entry_dir_35_-45_truePosInfo.txt"
-recoPosInfo = "500_mu_1_GeV_start_beam-entry_dir_35_-45_recoPosInfo.txt"
+sampleDescription = "500_mu_1_GeV_start_beam-entry_dir_35_-45" # description of sample being analyzed
+samplePath = "KAS_pictures/" + sampleDescription + "/" # path of sample, not an example path
+truePosInfo = sampleDescription + "_truePosInfo.txt"
+recoPosInfo = sampleDescription + "_recoPosInfo.txt"
 maxEventNum = 500
-eventList = range(0,10) # List of events we are working with
+eventList = range(0,5) # List of events we are working with
 ignoreEventList = False
 titleFontSize = 8
-forceRecoSegmentLength = True
-forceTrueSegmentLength = True
+forceRecoSegmentLength = False
+forceTrueSegmentLength = False
 
 # Modify eventList if ignoreEventList = True
 # 	If you want to know the eventNum of events[eventIndex], use eventList[eventIndex]
@@ -572,10 +579,8 @@ for eventIndex in range(0,len(segmentAverageMomentumData)):
 
 # Array has been reduced to form groupedMomentumVals, not use to calculate sigmaHL_vals
 averageSegmentMomentumList = [np.mean(x) for x in groupedMomentumVals]
-sigmaHL_vals = [MCS.highland(x, 14) for x in averageSegmentMomentumList]
-# Calculate sigmaHL and sigmaRES easily
-# Plot just like sigmaRMS
-# Put everything into a presentation by 2
+sigmaHL_vals = [MCS.highland(x, 14) for x in averageSegmentMomentumList] # TODO: Change this to use the correct length! for p,l in zip(averageSegmentMomentumList,lengthList[1:])???? Verify it's the same segment and same lengths or zip(averageSegmentMomentumList[1:], lengthList[2:] (or even [1:] idk!)
+choppedSigmaHL_vals = sigmaHL_vals[1:] # used in sigmaRES_vals calculations
 
 # Get sigmaRMS values
 recoPolygonalSigmaRMS_vals = MCS.GetSigmaRMS_vals(recoGroupedPolyAngleMeasurements)
@@ -584,43 +589,45 @@ recoLinearSigmaRMS_vals = MCS.GetSigmaRMS_vals(recoGroupedLinearAngleMeasurement
 truePolygonalSigmaRMS_vals = MCS.GetSigmaRMS_vals(trueGroupedPolyAngleMeasurements)
 trueLinearSigmaRMS_vals = MCS.GetSigmaRMS_vals(trueGroupedLinearAngleMeasurements)
 
-print(len(sigmaHL_vals))
-print(len(recoPolygonalSigmaRMS_vals))
-print(len(recoLinearSigmaRMS_vals))
-print(len(truePolygonalSigmaRMS_vals))
-print(len(trueLinearSigmaRMS_vals))
-# Get sigmaRES values
+# Get sigmaRES values:
+# TODO: Add Documentation
+recoPoly_sigmaRES_vals = MCS.GetSigmaRES_vals(recoPolygonalSigmaRMS_vals, choppedSigmaHL_vals)
+recoLinear_sigmaRES_vals = MCS.GetSigmaRES_vals(recoLinearSigmaRMS_vals, choppedSigmaHL_vals)
+truePoly_sigmaRES_vals = MCS.GetSigmaRES_vals(truePolygonalSigmaRMS_vals, choppedSigmaHL_vals)
+trueLinear_sigmaRES_vals = MCS.GetSigmaRES_vals(trueLinearSigmaRMS_vals, choppedSigmaHL_vals)
+# TODO: Potential restructure to be just like sigmaRMS? or change sigmaRMS to fit this?
 
-# MARK: Note to self:
-"""
-On Sunday, Jan 3:
-Task 0:
-Setup a system for saving plots to different folders, add to .gitignore
+recoPolyXZ_sigmaRES_vals, recoPolyYZ_sigmaRES_vals = recoPoly_sigmaRES_vals
+recoLinearXZ_sigmaRES_vals, recoLinearYZ_sigmaRES_vals = recoLinear_sigmaRES_vals
+truePolyXZ_sigmaRES_vals, truePolyYZ_sigmaRES_vals = truePoly_sigmaRES_vals
+trueLinearXZ_sigmaRES_vals, trueLinearYZ_sigmaRES_vals = trueLinear_sigmaRES_vals
 
-Task 1:
-Get sigmaRES values
-Compare directly with ROOT calculations
-Plot and make the plots look nice.
+# print sigmaHL (it's important to note that choppedSigmaHL_vals is used in calculating sigmaRES_vals)
+printerMCS.printSigmaHL_vals(sigmaHL_vals)
 
-Task 2:
-Plot MCS Momentum vs. True Momentum
-Calculate percent bias and resolution, as well as fractional bias and fractional resolution
-How do virtual points affect this?
+# print sigmaRMS
+printerMCS.printSigmaRMS_vals(recoPolygonalSigmaRMS_vals, "recoPoly")
+printerMCS.printSigmaRMS_vals(recoLinearSigmaRMS_vals, "recoLinear")
+printerMCS.printSigmaRMS_vals(truePolygonalSigmaRMS_vals, "truePoly")
+printerMCS.printSigmaRMS_vals(trueLinearSigmaRMS_vals, "trueLinear")
 
-Week of Jan 4:
-Apply various sigmaRES values and save plots in new system of folders
-Break up into multiple files
-Look at curvy tracks, do they have a larger bias/worse resolution?
-Incorporate into a presentation.
-"""
+# print sigmaRES
+printerMCS.printSigmaRES_vals(recoPoly_sigmaRES_vals,"recoPoly")
+printerMCS.printSigmaRES_vals(recoLinear_sigmaRES_vals,"recoLinear")
+printerMCS.printSigmaRES_vals(truePoly_sigmaRES_vals,"truePoly")
+printerMCS.printSigmaRES_vals(trueLinear_sigmaRES_vals,"trueLinear")
 
-# TODO: Calculate and Plot sigmaHL vs. Segment Number
-# TODO: Calculate and Plot sigmaRES vs. Segment Number
+# print sigmaRES averages
+printerMCS.printAverageSigmaRES_vals([(recoPolyXZ_sigmaRES_vals,"recoPolyXZ"),(recoPolyYZ_sigmaRES_vals,"recoPolyYZ"),(recoLinearXZ_sigmaRES_vals,"recoLinearXZ"),(recoLinearYZ_sigmaRES_vals,"recoLinearYZ"),(truePolyXZ_sigmaRES_vals,"truePolyXZ"),(truePolyYZ_sigmaRES_vals,"truePolyYZ"),(trueLinearXZ_sigmaRES_vals,"trueLinearXZ"),(trueLinearYZ_sigmaRES_vals,"trueLinearYZ")])
+
+# Make/Clear the directory before plotting and saving:
+if os.path.exists(samplePath):
+	shutil.rmtree(samplePath)
+os.mkdir(samplePath)
 
 ################################################################
 # MARK: Section 4: Angle Plotting
 ################################################################
-
 # Plot angle measurements for each segment
 # First need to make the arrays to plots
 poly_thetaXZprime_vals = recoGroupedPolyAngleMeasurements[0]
@@ -650,61 +657,223 @@ ax2 = plt.subplot(222) # Linear XZprime
 ax4 = plt.subplot(224) # Linear YZprime
 
 ax1.hist2d(poly_xVals,yVals_polyThetaXZprime, bins = [np.amax(poly_xVals),400], range = [[0,np.amax(poly_xVals)],[-200,200]], cmin = 1)
-ax1.set_title("Poly ThetaXZprime", fontsize = titleFontSize)
+ax1.set_title("Reconstructed Polygonal Angles", fontsize = titleFontSize)
 ax1.set_xlabel("Segment #")
-ax1.set_ylabel("ThetaXZprime")
+ax1.set_ylabel("$\\theta_{XZ}'$ (mrad)")
 
 ax3.hist2d(poly_xVals,yVals_polyThetaYZprime, bins = [np.amax(poly_xVals),400], range = [[0,np.amax(poly_xVals)],[-200,200]], cmin = 1)
-ax3.set_title("Poly ThetaYZprime", fontsize = titleFontSize)
+ax3.set_title("Reconstructed Polygonal Angles", fontsize = titleFontSize)
 ax3.set_xlabel("Segment #")
-ax3.set_ylabel("ThetaYZprime")
+ax3.set_ylabel("$\\theta_{YZ}'$ (mrad)")
 
 ax2.hist2d(linear_xVals,yVals_linearThetaXZprime, bins = [np.amax(linear_xVals),400], range = [[0,np.amax(linear_xVals)],[-200,200]], cmin = 1)
-ax2.set_title("Linear ThetaXZprime", fontsize = titleFontSize)
+ax2.set_title("Reconstructed Linear Fit Angles", fontsize = titleFontSize)
 ax2.set_xlabel("Segment #")
-ax2.set_ylabel("ThetaXZprime")
+ax2.set_ylabel("$\\theta_{XZ}'$ (mrad)")
 
 ax4.hist2d(linear_xVals,yVals_linearThetaYZprime, bins = [np.amax(linear_xVals),400], range = [[0,np.amax(linear_xVals)],[-200,200]], cmin = 1)
-ax4.set_title("Linear ThetaYZprime", fontsize = titleFontSize)
+ax4.set_title("Reconstructed Linear Fit Angles", fontsize = titleFontSize)
 ax4.set_xlabel("Segment #")
-ax4.set_ylabel("ThetaYZprime")
+ax4.set_ylabel("$\\theta_{YZ}'$ (mrad)")
 
 plt.tight_layout()
-plt.savefig("angles.png",bbox_inches = 'tight')
+plt.savefig(samplePath + "recoAnglesVsSegmentNumber.png",bbox_inches = 'tight')
+# TODO: Add a caption? and suptitle?
 
-# Plot sigmaRMS
+# Plot Reconstructed sigmaRMS & sigmaHL vs. Segment Number
 
 fig = plt.figure()
 ax1 = plt.subplot(221) # PolyXZ
-ax3 = plt.subplot(223) # PolyYZ
-ax2 = plt.subplot(222) # LinearXZ
+ax2 = plt.subplot(222) # PolyYZ
+ax3 = plt.subplot(223) # LinearXZ
 ax4 = plt.subplot(224) # LinearYZ
 
-ax1.plot(range(0,len(np.transpose(recoPolygonalSigmaRMS_vals)[0])), np.transpose(recoPolygonalSigmaRMS_vals)[0],'o')
-ax1.set_title("Poly ThetaXZprime sigmaRMS vs. Segment #", fontsize = titleFontSize)
+fig.suptitle("Reconstructed Angular Distribution Parameters vs. Segment Number")
+
+ax1.plot(range(0,len(np.transpose(recoPolygonalSigmaRMS_vals)[0])), np.transpose(recoPolygonalSigmaRMS_vals)[0],'o', label = "$\sigma_{RMS}$")
+ax1.plot(range(0,len(choppedSigmaHL_vals)), choppedSigmaHL_vals, '+', label = "$\sigma_{HL}$")
+ax1.set_title("Polygonal $\\theta_{XZ}'$", fontsize = titleFontSize)
 ax1.set_xlabel("Segment #")
-ax1.set_ylabel("sigmaRMS")
+ax1.set_ylabel("Angular Distribution Paras (rad)", fontsize = 'x-small')
+ax1.set_ylim(bottom = 0)
+ax1.legend()
 
-ax3.plot(range(0,len(np.transpose(recoPolygonalSigmaRMS_vals)[1])), np.transpose(recoPolygonalSigmaRMS_vals)[1],'o')
-ax3.set_title("Poly ThetaYZprime sigmaRMS vs. Segment #", fontsize = titleFontSize)
-ax3.set_xlabel("Segment #")
-ax3.set_ylabel("sigmaRMS")
-
-ax2.plot(range(0,len(np.transpose(recoLinearSigmaRMS_vals)[0])), np.transpose(recoLinearSigmaRMS_vals)[0],'o')
-ax2.set_title("Linear ThetaXZprime sigmaRMS vs. Segment #", fontsize = titleFontSize)
+ax2.plot(range(0,len(np.transpose(recoPolygonalSigmaRMS_vals)[1])), np.transpose(recoPolygonalSigmaRMS_vals)[1],'o', label = "$\sigma_{RMS}$")
+ax2.plot(range(0,len(choppedSigmaHL_vals)), choppedSigmaHL_vals, '+', label = "$\sigma_{HL}$")
+ax2.set_title("Polygonal $\\theta_{YZ}'$", fontsize = titleFontSize)
 ax2.set_xlabel("Segment #")
-ax2.set_ylabel("sigmaRMS")
+ax2.set_ylabel("Angular Distribution Paras (rad)", fontsize = 'x-small')
+ax2.set_ylim(bottom = 0)
+ax2.legend()
 
-ax4.plot(range(0,len(np.transpose(recoLinearSigmaRMS_vals)[1])), np.transpose(recoLinearSigmaRMS_vals)[1],'o')
-ax4.set_title("Linear ThetaYZprime sigmaRMS vs. Segment #", fontsize = titleFontSize)
+ax3.plot(range(0,len(np.transpose(recoLinearSigmaRMS_vals)[0])), np.transpose(recoLinearSigmaRMS_vals)[0],'o', label = "$\sigma_{RMS}$")
+ax3.plot(range(0,len(choppedSigmaHL_vals)), choppedSigmaHL_vals, '+', label = "$\sigma_{HL}$")
+ax3.set_title("Linear $\\theta_{XZ}'$", fontsize = titleFontSize)
+ax3.set_xlabel("Segment #")
+ax3.set_ylabel("Angular Distribution Paras (rad)", fontsize = 'x-small')
+ax3.set_ylim(bottom = 0)
+ax3.legend()
+
+ax4.plot(range(0,len(np.transpose(recoLinearSigmaRMS_vals)[1])), np.transpose(recoLinearSigmaRMS_vals)[1],'o', label = "$\sigma_{RMS}$")
+ax4.plot(range(0,len(choppedSigmaHL_vals)), choppedSigmaHL_vals, '+', label = "$\sigma_{HL}$")
+ax4.set_title("Linear $\\theta_{YZ}'$", fontsize = titleFontSize)
 ax4.set_xlabel("Segment #")
-ax4.set_ylabel("sigmaRMS")
+ax4.set_ylabel("Angular Distribution Paras (rad)", fontsize = 'x-small')
+ax4.set_ylim(bottom = 0)
+ax4.legend()
 
-plt.tight_layout()
-plt.savefig("sigmaRMS.png", bbox_inches = 'tight')
+fig.tight_layout(rect = (0, 0.03, 1, 0.95))
+plt.savefig(samplePath + "recoAngularDistributionParametersVsSegmentNumber.png", bbox_inches = 'tight')
 
-# Future check:
-# Check if the same points in each segment for a segment with big diff
+# Plot reeconstructed sigmaRES vs. Segment Number
+fig = plt.figure()
+ax1 = plt.subplot(221)
+ax2 = plt.subplot(222)
+ax3 = plt.subplot(223)
+ax4 = plt.subplot(224)
+
+fig.suptitle("Reconstructed $\sigma_{RES}$ vs. Segment Number")
+
+ax1.plot(range(0,len(recoPolyXZ_sigmaRES_vals)), recoPolyXZ_sigmaRES_vals, 'o')
+ax1.set_title("Polygonal $\\theta_{XZ}'$", fontsize = titleFontSize)
+ax1.set_xlabel("Segment #")
+ax1.set_ylabel("sigmaRES (rad)")
+ax1.set_ylim(bottom = 0)
+
+ax2.plot(range(0,len(recoPolyYZ_sigmaRES_vals)), recoPolyYZ_sigmaRES_vals, 'o')
+ax2.set_title("Polygonal $\\theta_{YZ}'$", fontsize = titleFontSize)
+ax2.set_xlabel("Segment #")
+ax2.set_ylabel("sigmaRES (rad)")
+ax2.set_ylim(bottom = 0)
+
+ax3.plot(range(0,len(recoLinearXZ_sigmaRES_vals)), recoLinearXZ_sigmaRES_vals, 'o')
+ax3.set_title("Linear $\\theta_{XZ}'$", fontsize = titleFontSize)
+ax3.set_xlabel("Segment #")
+ax3.set_ylabel("sigmaRES (rad)")
+ax3.set_ylim(bottom = 0)
+
+ax4.plot(range(0,len(recoLinearYZ_sigmaRES_vals)), recoLinearYZ_sigmaRES_vals, 'o')
+ax4.set_title("Linear $\\theta_{YZ}'$", fontsize = titleFontSize)
+ax4.set_xlabel("Segment #")
+ax4.set_ylabel("sigmaRES (rad)")
+ax4.set_ylim(bottom = 0)
+
+fig.tight_layout(rect = (0, 0.03, 1, 0.95))
+plt.savefig(samplePath + "recoSigmaRESVsSegmentNumber.png", bbox_inches = 'tight')
+
+# Plot reconstructed average sigmaRES values
+fig = plt.figure()
+ax = plt.subplot()
+
+fig.suptitle("Reconstructed Average $\sigma_{RES}$")
+
+titles = ["Linear $\\theta_{XZ}'$", "Linear $\\theta_{YZ}'$", "Poly $\\theta_{XZ}'$", "Poly $\\theta_{YZ}'$"]
+recoSigmaRES_averages = [np.nanmean(recoLinearXZ_sigmaRES_vals), np.nanmean(recoLinearYZ_sigmaRES_vals), np.nanmean(recoPolyXZ_sigmaRES_vals), np.nanmean(recoPolyYZ_sigmaRES_vals)]
+
+ax.bar(titles,recoSigmaRES_averages)
+ax.set_xlabel("MCS Method")
+ax.set_ylabel("Average $\sigma_{RES}$ (rad)")
+
+fig.tight_layout(rect = (0, 0.03, 1, 0.95))
+plt.savefig(samplePath + "recoAverageSigmaRES.png", bbox_inches = 'tight')
+
+# True Angle Plots:
+# Plot True sigmaRMS & sigmaHL vs. Segment Number
+
+fig = plt.figure()
+ax1 = plt.subplot(221) # PolyXZ
+ax2 = plt.subplot(222) # PolyYZ
+ax3 = plt.subplot(223) # LinearXZ
+ax4 = plt.subplot(224) # LinearYZ
+
+fig.suptitle("True Angular Distribution Parameters vs. Segment Number")
+
+ax1.plot(range(0,len(np.transpose(truePolygonalSigmaRMS_vals)[0])), np.transpose(truePolygonalSigmaRMS_vals)[0],'o', label = "$\sigma_{RMS}$")
+ax1.plot(range(0,len(choppedSigmaHL_vals)), choppedSigmaHL_vals, '+', label = "$\sigma_{HL}$")
+ax1.set_title("Polygonal $\\theta_{XZ}'$", fontsize = titleFontSize)
+ax1.set_xlabel("Segment #")
+ax1.set_ylabel("Angular Distribution Paras (rad)", fontsize = 'x-small')
+ax1.set_ylim(bottom = 0)
+ax1.legend()
+
+ax2.plot(range(0,len(np.transpose(truePolygonalSigmaRMS_vals)[1])), np.transpose(truePolygonalSigmaRMS_vals)[1],'o', label = "$\sigma_{RMS}$")
+ax2.plot(range(0,len(choppedSigmaHL_vals)), choppedSigmaHL_vals, '+', label = "$\sigma_{HL}$")
+ax2.set_title("Polygonal $\\theta_{YZ}'$", fontsize = titleFontSize)
+ax2.set_xlabel("Segment #")
+ax2.set_ylabel("Angular Distribution Paras (rad)", fontsize = 'x-small')
+ax2.set_ylim(bottom = 0)
+ax2.legend()
+
+ax3.plot(range(0,len(np.transpose(trueLinearSigmaRMS_vals)[0])), np.transpose(trueLinearSigmaRMS_vals)[0],'o', label = "$\sigma_{RMS}$")
+ax3.plot(range(0,len(choppedSigmaHL_vals)), choppedSigmaHL_vals, '+', label = "$\sigma_{HL}$")
+ax3.set_title("Linear $\\theta_{XZ}'$", fontsize = titleFontSize)
+ax3.set_xlabel("Segment #")
+ax3.set_ylabel("Angular Distribution Paras (rad)", fontsize = 'x-small')
+ax3.set_ylim(bottom = 0)
+ax3.legend()
+
+ax4.plot(range(0,len(np.transpose(trueLinearSigmaRMS_vals)[1])), np.transpose(trueLinearSigmaRMS_vals)[1],'o', label = "$\sigma_{RMS}$")
+ax4.plot(range(0,len(choppedSigmaHL_vals)), choppedSigmaHL_vals, '+', label = "$\sigma_{HL}$")
+ax4.set_title("Linear $\\theta_{YZ}'$", fontsize = titleFontSize)
+ax4.set_xlabel("Segment #")
+ax4.set_ylabel("Angular Distribution Paras (rad)", fontsize = 'x-small')
+ax4.set_ylim(bottom = 0)
+ax4.legend()
+
+fig.tight_layout(rect = (0, 0.03, 1, 0.95))
+plt.savefig(samplePath + "trueAngularDistributionParametersVsSegmentNumber.png", bbox_inches = 'tight')
+
+# Plot true sigmaRES vs. Segment Number
+fig = plt.figure()
+ax1 = plt.subplot(221)
+ax2 = plt.subplot(222)
+ax3 = plt.subplot(223)
+ax4 = plt.subplot(224)
+
+fig.suptitle("True $\sigma_{RES}$ vs. Segment Number")
+
+ax1.plot(range(0,len(truePolyXZ_sigmaRES_vals)), truePolyXZ_sigmaRES_vals, 'o')
+ax1.set_title("Polygonal $\\theta_{XZ}'$", fontsize = titleFontSize)
+ax1.set_xlabel("Segment #")
+ax1.set_ylabel("sigmaRES (rad)")
+ax1.set_ylim(bottom = 0)
+
+ax2.plot(range(0,len(truePolyYZ_sigmaRES_vals)), truePolyYZ_sigmaRES_vals, 'o')
+ax2.set_title("Polygonal $\\theta_{YZ}'$", fontsize = titleFontSize)
+ax2.set_xlabel("Segment #")
+ax2.set_ylabel("sigmaRES (rad)")
+ax2.set_ylim(bottom = 0)
+
+ax3.plot(range(0,len(trueLinearXZ_sigmaRES_vals)), trueLinearXZ_sigmaRES_vals, 'o')
+ax3.set_title("Linear $\\theta_{XZ}'$", fontsize = titleFontSize)
+ax3.set_xlabel("Segment #")
+ax3.set_ylabel("sigmaRES (rad)")
+ax3.set_ylim(bottom = 0)
+
+ax4.plot(range(0,len(trueLinearYZ_sigmaRES_vals)), trueLinearYZ_sigmaRES_vals, 'o')
+ax4.set_title("Linear $\\theta_{YZ}'$", fontsize = titleFontSize)
+ax4.set_xlabel("Segment #")
+ax4.set_ylabel("sigmaRES (rad)")
+ax4.set_ylim(bottom = 0)
+
+fig.tight_layout(rect = (0, 0.03, 1, 0.95))
+plt.savefig(samplePath + "trueSigmaRESVsSegmentNumber.png", bbox_inches = 'tight')
+
+# Plot true average sigmaRES values
+fig = plt.figure()
+ax = plt.subplot()
+
+fig.suptitle("True Average $\sigma_{RES}$")
+
+titles = ["Linear $\\theta_{XZ}'$", "Linear $\\theta_{YZ}'$", "Poly $\\theta_{XZ}'$", "Poly $\\theta_{YZ}'$"]
+trueSigmaRES_averages = [np.nanmean(trueLinearXZ_sigmaRES_vals), np.nanmean(trueLinearYZ_sigmaRES_vals), np.nanmean(truePolyXZ_sigmaRES_vals), np.nanmean(truePolyYZ_sigmaRES_vals)]
+
+ax.bar(titles,trueSigmaRES_averages)
+ax.set_xlabel("MCS Method")
+ax.set_ylabel("Average $\sigma_{RES}$ (rad)")
+
+fig.tight_layout(rect = (0, 0.03, 1, 0.95))
+plt.savefig(samplePath + "trueAverageSigmaRES.png", bbox_inches = 'tight')
 
 ################################################################
 # MARK: Section 5: Momentum Plotting
@@ -729,7 +898,7 @@ ax2 = plt.subplot(122) # Polygonal
 
 ax1.hist(recoLinearMCSMomentum_vals, bins = 100)
 ax2.hist(recoPolyMCSMomentum_vals, bins = 100)
-plt.savefig("recoMCSMomentum.png", bbox_inches = 'tight')
+plt.savefig(samplePath + "recoMCSMomentum.png", bbox_inches = 'tight')
 
 # ==============================================================
 # True MCS Momentum Plotting
@@ -750,4 +919,32 @@ ax2 = plt.subplot(122) # Polygonal
 
 ax1.hist(trueLinearMCSMomentum_vals, bins = 100)
 ax2.hist(truePolyMCSMomentum_vals, bins = 100)
-plt.savefig("trueMCSMomentum.png", bbox_inches = 'tight')
+plt.savefig(samplePath + "trueMCSMomentum.png", bbox_inches = 'tight')
+
+# Still need to plot MCS Momentum vs. True Momentum (initial and maybe even vs. segment number, that could be interesting)
+
+print()
+print("knownAngleStudy.py has completed for sample:\n" + sampleDescription)
+
+# TODO: Future check:
+# Check if the same points in each segment for a segment with big diff
+
+# MARK: Note to self:
+"""
+NOW:
+Directly compare sigmaRMS, sigmaHL, and sigmaRES with ROOT values.
+Plot MCS Momentum vs. True Momentum (are we getting the exact same values as ROOT?)
+Calculate percent and fractional momentum bias & resolution
+
+Soon:
+Analyze how curvy tracks factor into MCS Momentum and sigmaRES calculations.
+Analyze how virtual points may or may not help MCS Momentum and sigmaRES calculations.
+Analyze how virtual points affect # of segment comparisons.
+Analyze the effect of sigmaRES values on MCS Momentum calculations
+
+Future:
+Continually split this code into different files.
+	Specifically put print statements in a separate file and plotting functions in a separate file
+Propagate sigmaRES uncertainty.
+Wrap data into classes to serve as containers
+"""

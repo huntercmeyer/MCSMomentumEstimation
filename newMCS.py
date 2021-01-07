@@ -27,13 +27,27 @@ def OrganizeRecoDataIntoEvents(fileName):
 		track = trackNum[entry]
 		if track > previousTrack or event > previousEvent:
 			eventData[event].append([])
+			if track != 0 and event > previousEvent:
+				eventData[event].append([]) # This will probably only fix this one issue, it is not a general fix.... Fixes case where event goes up by 1 but track is not 0, instead it's track 1.  The solution to this will be counting the trackIndex (or the eventIndex for that matter) in a different counter than eventNum[entry] and trackNum[entry], although those will be important for changing events/tracks
 		if xVals[entry] != -999.0:
 			eventData[event][track].append([xVals[entry],yVals[entry],zVals[entry]])
 		
 		previousEvent = event
 		previousTrack = track
+		
+	# Clean up cases where the first track is not longer than 100 cm. (in the future, it'll be when a track is skipped, therefore the index is wrong)
+	for eventNum in range(0,len(eventData)):
+		event = eventData[eventNum]
+		for track in event:
+			try:
+				event.remove([])
+				print(eventNum)
+			except ValueError:
+				pass
 
 	return eventData
+
+# Fix case where track skips the first track... (event goes up by one, track is track 1, not track 0)
 
 # Will be a function just like the reco one, except will sort away the momentum info
 # And will separate into individual MCParticle containers, as opposed to Track containers.
@@ -281,6 +295,7 @@ def OrganizeParticleDataIntoSegments(particle,particleMomentum,segmentLength = 1
 		previousDiff = diff
 		previousMomentum = currentMomentum
 
+	print(len(segments), len(segmentMomentumAverages))
 	return segments, segmentMomentumAverages
 
 # Returned Organizational structure:
@@ -551,3 +566,24 @@ def GetSigmaRMS_vals(groupedAngleMeasurements):
 		sigmaRMS_vals.append([thetaXZprime_stdev,thetaYZprime_stdev])
 
 	return sigmaRMS_vals
+
+# TODO: Add Documentation
+# sigmaRMS_vals has both XZ and YZ sigmaRMS values
+# Will return both XZ and YZ sigmaRES values
+def GetSigmaRES_vals(sigmaRMS_vals, sigmaHL_vals):
+	sigmaRMS_XZ_vals = np.transpose(sigmaRMS_vals).tolist()[0]
+	sigmaRMS_YZ_vals = np.transpose(sigmaRMS_vals).tolist()[1]
+	sigmaRES_XZ_vals = []
+	sigmaRES_YZ_vals = []
+	
+	for sigmaRMS_XZ, sigmaRMS_YZ, sigmaHL in zip(sigmaRMS_XZ_vals, sigmaRMS_YZ_vals, sigmaHL_vals):
+		sigmaRES_XZ = np.sqrt(sigmaRMS_XZ**2 - sigmaHL**2)
+		sigmaRES_YZ = np.sqrt(sigmaRMS_YZ**2 - sigmaHL**2)
+		sigmaRES_XZ_vals.append(sigmaRES_XZ)
+		sigmaRES_YZ_vals.append(sigmaRES_YZ)
+	
+	# Perhaps in the future we will instead by averaging the XZ and YZ vals into one list
+	# Only if there's no significant difference in XZ vs. YZ (i.e. curvy tracks are fixed and this fixes differences)
+	return (sigmaRES_XZ_vals, sigmaRES_YZ_vals)
+
+# TODO: Move angular analysis to a separate file (angleMCS.py or something like that)
