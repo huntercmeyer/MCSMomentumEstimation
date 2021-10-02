@@ -1,3 +1,6 @@
+This is an outdated repository. This work has been implemented in C++ in the LArSoft library.
+You can view the latest work at: https://github.com/kasettisiva/MCSanalysis in protoduneana/protoduneana/singlephase/MCSanalysis.
+
 # MCSMomentumEstimation
 Work used in multiple Coulomb scattering momentum estimation analysis.
 
